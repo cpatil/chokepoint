@@ -1694,6 +1694,50 @@ do {
           "\(view.cardPanelHeight(wd)) vs \(view.cardPanelHeight(one))")
 }
 
+// ---- the ladder must not recommend the thing it is describing -----------------
+//
+// A WD Elements - a portable hard disk - peaked at 79.9 MB/s and the session log
+// said "portable hard disk would be about 1.4x faster". The catalogue had picked the
+// next rung by rate alone, and that rung was the class the device already belonged
+// to. Same circularity as the bar yardstick that chose a standard by the very rate
+// it was measuring; here it also happened to be wrong about the cause, since the
+// drive was serving SMB over Wi-Fi at the time.
+do {
+    func disk(peak: Double) -> Analysis.Group? {
+        let began = Date(timeIntervalSince1970: 100_000)
+        let session = TransferSession(id: "wd", device: "Elements 2621", section: "USB",
+                                      started: began, ended: began.addingTimeInterval(60),
+                                      bytesRead: 4_000_000_000, bytesWritten: 0,
+                                      peakRate: peak, linkBits: 0, linkTrusted: false,
+                                      removable: false, physical: true, wireless: false,
+                                      processes: [], volumes: ["media"])
+        return Analysis.groups(from: [session], records: [:]).first
+    }
+
+    // 110 MB/s is the catalogue's portable hard disk; 79.9 is 1.4x under it - well
+    // inside the spread of real spinning drives, so not a different class of thing.
+    if let near = disk(peak: 79_900_000) {
+        let text = Analysis.recommendation(for: near)
+        check("ladder: does not offer a portable hard disk to a portable hard disk",
+              !text.contains("would be about"), text)
+        check("ladder: reports the shortfall against its own class instead",
+              text.contains("portable hard disk") && text.contains("79.9 MB/s"), text)
+    } else {
+        check("ladder: near-rung group was built", false)
+    }
+
+    // Far enough below that reaching the rung really would mean different hardware:
+    // the recommendation has to survive, or the fix has thrown the feature away.
+    if let far = disk(peak: 40_000_000) {
+        let text = Analysis.recommendation(for: far)
+        check("ladder: a genuinely slower device is still told what would help",
+              text.contains("would be about") && text.contains("portable hard disk"),
+              text)
+    } else {
+        check("ladder: far-rung group was built", false)
+    }
+}
+
 
 print(failures == 0 ? "\n\(checks) checks passed" : "\n\(failures) of \(checks) checks FAILED")
 exit(failures == 0 ? 0 : 1)

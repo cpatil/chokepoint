@@ -304,6 +304,41 @@ enum Analysis {
     private static let atLimitBand = 0.15
     private static let saturated = 0.85
 
+    /// How far above a measurement a rung has to sit before it counts as different
+    /// hardware rather than the same hardware on a better day.
+    ///
+    /// Within this factor the device could simply *be* that rung, running below par:
+    /// a portable hard disk spans more than 2x between a tired 5400rpm drive on a
+    /// busy link and a fresh one on an idle one. Naming such a rung as an upgrade is
+    /// the catalogue recommending the thing it is describing - a drive that peaked at
+    /// 79.9 MB/s was told "portable hard disk would be about 1.4x faster", which it
+    /// already was. Applies going up; the rung below already reasoned this way.
+    private static let sameClassBand = 2.0
+
+    /// "a" or "an" for a catalogue name, and a capital when it opens a sentence.
+    ///
+    /// The letter rule alone gets these wrong. An initialism read out as letters
+    /// takes the first letter's sound - "an SD card", "an NVMe SSD" - while one read
+    /// as a word takes the word's, so it is "a SATA SSD". And "USB" opens with a
+    /// vowel letter but the sound "you", so it is "a USB flash drive". The catalogue
+    /// is twenty fixed names, so these are listed rather than inferred.
+    private static func article(for name: String) -> String {
+        for spelled in ["SD", "NVMe", "SSD", "HDD", "MMC", "XQD", "eMMC"]
+        where name.hasPrefix(spelled) { return "an" }
+        // "you-" openings: USB, UHS, UDMA. A vowel on the page, a consonant aloud.
+        if name.hasPrefix("U") { return "a" }
+        guard let first = name.first else { return "a" }
+        return "aeiouAEIOU".contains(first) ? "an" : "a"
+    }
+
+    /// The same, opening a sentence: "A portable hard disk would be about 2.8x faster."
+    private static func Named(_ name: String) -> String {
+        article(for: name).prefix(1).uppercased() + article(for: name).dropFirst()
+            + " " + name
+    }
+
+    private static func named(_ name: String) -> String { article(for: name) + " " + name }
+
     private static func times(_ factor: Double) -> String {
         factor >= 10 ? String(format: "%.0f×", factor) : String(format: "%.1f×", factor)
     }
@@ -463,7 +498,7 @@ enum Analysis {
         if let here = atLimit(of: ladder, peak: peak) {
             if let step = target(from: here, role: role, family: family, ceiling: cap) {
                 var text = "Peaks at \(Fmt.rate(peak, unit: .bytes)), right at \(here.name)'s limit. "
-                    + "\(step.ref.name) would be about \(times(step.factor)) faster"
+                    + "\(Named(step.ref.name)) would be about \(times(step.factor)) faster"
                 if let note = here.upgradeNote, step.ref.name == here.upgrade { text += ", " + note }
                 return text + "."
             }
@@ -475,20 +510,28 @@ enum Analysis {
         // rung is the floor for this kind of device - a slow hard disk is still a hard
         // disk - so the next rung up is what actually helps.
         if let slowest = ladder.first, peak < slowest.payloadBytes * (1 - atLimitBand) {
-            if slowest.payloadBytes / peak >= 2 {
-                return "Peaks at only \(Fmt.rate(peak, unit: .bytes)) — below even \(slowest.name), "
+            if slowest.payloadBytes / peak >= sameClassBand {
+                return "Peaks at only \(Fmt.rate(peak, unit: .bytes)) — below even \(named(slowest.name)), "
                     + "which would be about \(times(slowest.payloadBytes / peak)) faster."
             }
             if let step = target(from: slowest, role: role, family: family, ceiling: cap) {
-                return "Peaks at \(Fmt.rate(peak, unit: .bytes)), about what \(slowest.name) does. "
-                    + "\(step.ref.name) would be about \(times(step.ref.payloadBytes / peak)) faster."
+                return "Peaks at \(Fmt.rate(peak, unit: .bytes)), about what \(named(slowest.name)) does. "
+                    + "\(Named(step.ref.name)) would be about \(times(step.ref.payloadBytes / peak)) faster."
             }
         }
 
-        // Between two rungs: name the next one up.
+        // Between two rungs: name the next one up, but only when reaching it would
+        // mean different hardware. Closer than that and this device is most likely
+        // that rung already, running under par - so report the shortfall and leave
+        // the cause alone, rather than prescribing what it is.
         if let next = ladder.first(where: { $0.payloadBytes > peak * (1 + atLimitBand) }) {
+            guard next.payloadBytes / peak >= sameClassBand else {
+                return "Peaks at \(Fmt.rate(peak, unit: .bytes)) — under the "
+                    + "\(Fmt.rate(next.payloadBytes, unit: .bytes)) typical of "
+                    + "\(named(next.name))."
+            }
             return "Peaks at \(Fmt.rate(peak, unit: .bytes)). "
-                + "\(next.name) would be about \(times(next.payloadBytes / peak)) faster."
+                + "\(Named(next.name)) would be about \(times(next.payloadBytes / peak)) faster."
         }
         return "Running at the top of what this class of device does."
     }
