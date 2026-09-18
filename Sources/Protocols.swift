@@ -53,14 +53,14 @@ enum Catalogue {
     /// Where a catalogue update is fetched from, and only ever when the user asks.
     /// Nothing in this app contacts the network on its own.
     static let remoteURL = URL(string:
-        "https://raw.githubusercontent.com/cpatil/bottleneck/main/Resources/speeds.json")!
+        "https://raw.githubusercontent.com/cpatil/chokepoint/main/Resources/speeds.json")!
 
     private static let lastCheckKey = "CatalogueLastCheck"
     static let reminderInterval: TimeInterval = 30 * 24 * 3600
 
     static var cacheURL: URL {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Bottleneck", isDirectory: true)
+            .appendingPathComponent("Chokepoint", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("speeds.json")
     }

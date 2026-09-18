@@ -1,4 +1,4 @@
-// Draws Bottleneck's app icon and writes Resources/Bottleneck.icns.
+// Draws Chokepoint's app icon and writes Resources/Chokepoint.icns.
 //
 //   swift tools/make-icon.swift        (build.sh does this for you)
 //
@@ -98,7 +98,7 @@ func icon(_ size: Int) -> NSBitmapImageRep {
 }
 
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-let iconset = root.appendingPathComponent("build/Bottleneck.iconset")
+let iconset = root.appendingPathComponent("build/Chokepoint.iconset")
 try? FileManager.default.removeItem(at: iconset)
 try! FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 

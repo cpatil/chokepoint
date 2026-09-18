@@ -17,6 +17,6 @@ swiftc -O -framework Cocoa -framework IOKit -framework SystemConfiguration \
 status=0
 for appearance in light dark; do
     echo "==> Running ($appearance)"
-    LIMEN_APPEARANCE="$appearance" "$OUT/tests" || status=1
+    CHOKEPOINT_APPEARANCE="$appearance" "$OUT/tests" || status=1
 done
 exit $status

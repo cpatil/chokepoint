@@ -98,7 +98,7 @@ final class MagnifierView: NSView {
         // the evidence, so it can be disagreed with.
         if !row.mediumClass.isEmpty {
             // Deliberately hedged twice over. The family follows from the capacity
-            // only once the medium is known to be an SD card, which Bottleneck takes from
+            // only once the medium is known to be an SD card, which Chokepoint takes from
             // the reader's own description rather than from the capacity; and the
             // reason the rest is unavailable is what readers usually do, not a law -
             // a vendor-specific reader and driver can expose more.
@@ -113,7 +113,7 @@ final class MagnifierView: NSView {
                 : ""
             // Short on purpose. This is the evidence for the badge above it - the
             // claim, what it rests on, and what stops it going further - and it is
-            // read while hovering. The general case for how Bottleneck infers
+            // read while hovering. The general case for how Chokepoint infers
             // anything lives in the colour key, which says all of this once and at
             // length; repeating it on every card charged the reader twice.
             out.append((Palette.marked(basis + "Likely \(family), from \(capacity). "

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Carrying a user's data across the rename from Limen to Bottleneck.
+/// Carrying a user's data across the renames: Limen, then Bottleneck, now Chokepoint.
 ///
 /// The app kept everything under an Application Support folder and a preferences
 /// domain named after itself, so renaming it would have quietly abandoned both: three
@@ -14,11 +14,18 @@ import Foundation
 /// afterwards about which is current; and deliberately a no-op the moment the new
 /// folder exists, so it cannot run twice and cannot overwrite live data.
 enum Migration {
-    static let oldName = "Limen"
-    static let newName = "Bottleneck"
-    static let oldDomain = "local.limen"
-    static let newDomain = "local.bottleneck"
-    static let oldAgentLabel = "local.limen.card-watch"
+    /// Every name this app has worn, oldest first.
+    ///
+    /// A list rather than one previous name, because a second rename would otherwise
+    /// strand anyone who skipped the first: someone still on Limen would migrate to a
+    /// Bottleneck folder that nothing reads any more. Whoever has data under any of
+    /// these gets it carried across in one launch.
+    static let previousNames = ["Limen", "Bottleneck"]
+    static let newName = "Chokepoint"
+    static let previousDomains = ["local.limen", "local.bottleneck"]
+    static let newDomain = "local.chokepoint"
+    static let previousAgentLabels = ["local.limen.card-watch",
+                                      "local.bottleneck.card-watch"]
 
     /// Whether one file should be carried across: it is in the old folder and the new
     /// folder has nothing by that name. Pure, so the decision can be tested without
@@ -37,10 +44,15 @@ enum Migration {
                     defaults: UserDefaults = .standard) {
         let support = fileManager.urls(for: .applicationSupportDirectory,
                                        in: .userDomainMask)[0]
-        let old = support.appendingPathComponent(oldName, isDirectory: true)
         let new = support.appendingPathComponent(newName, isDirectory: true)
 
-        if let items = try? fileManager.contentsOfDirectory(atPath: old.path) {
+        // Newest name first. shouldCarry only moves a file when the destination has
+        // nothing by that name, so processing oldest-first would let Limen's stale
+        // log win over the Bottleneck one that replaced it.
+        for previous in previousNames.reversed() {
+            let old = support.appendingPathComponent(previous, isDirectory: true)
+            guard let items = try? fileManager.contentsOfDirectory(atPath: old.path)
+            else { continue }
             try? fileManager.createDirectory(at: new, withIntermediateDirectories: true)
             for item in items {
                 // The lock file belongs to whichever process is running; it is
@@ -64,9 +76,15 @@ enum Migration {
         // Preferences are a separate store keyed by domain, so they need their own
         // pass. Only what the old app actually wrote: copying the whole domain would
         // drag in AppKit's own window-frame keys under the wrong name.
-        if defaults.persistentDomain(forName: newDomain) == nil,
-           let carried = defaults.persistentDomain(forName: oldDomain) {
-            defaults.setPersistentDomain(carried, forName: newDomain)
+        //
+        // Newest first again, and stop at the first one found: settings from the name
+        // most recently used are the ones the user last chose.
+        if defaults.persistentDomain(forName: newDomain) == nil {
+            for domain in previousDomains.reversed() {
+                guard let carried = defaults.persistentDomain(forName: domain) else { continue }
+                defaults.setPersistentDomain(carried, forName: newDomain)
+                break
+            }
         }
 
         // The old watcher would keep running, keep reading the old preferences domain,
@@ -77,16 +95,18 @@ enum Migration {
     /// Unloads and removes the LaunchAgent installed under the old name. The new one
     /// is installed on demand by CardWatch, from the switches carried across above.
     private static func retireOldAgent(fileManager: FileManager) {
-        let plist = fileManager.urls(for: .libraryDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("LaunchAgents/\(oldAgentLabel).plist")
-        guard fileManager.fileExists(atPath: plist.path) else { return }
-        let task = Process()
-        task.launchPath = "/bin/launchctl"
-        task.arguments = ["unload", plist.path]
-        task.standardError = FileHandle.nullDevice
-        task.standardOutput = FileHandle.nullDevice
-        try? task.run()
-        task.waitUntilExit()
-        try? fileManager.removeItem(at: plist)
+        for label in previousAgentLabels {
+            let plist = fileManager.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("LaunchAgents/\(label).plist")
+            guard fileManager.fileExists(atPath: plist.path) else { continue }
+            let task = Process()
+            task.launchPath = "/bin/launchctl"
+            task.arguments = ["unload", plist.path]
+            task.standardError = FileHandle.nullDevice
+            task.standardOutput = FileHandle.nullDevice
+            try? task.run()
+            task.waitUntilExit()
+            try? fileManager.removeItem(at: plist)
+        }
     }
 }

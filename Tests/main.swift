@@ -7,7 +7,7 @@ import Cocoa
 // this variable. Both the palette and AppKit's own dynamic colours have to be told:
 // the palette has no application to ask, and NSColor resolves a dynamic colour
 // against whatever appearance is current on this thread.
-let appearanceName = ProcessInfo.processInfo.environment["LIMEN_APPEARANCE"] ?? "light"
+let appearanceName = ProcessInfo.processInfo.environment["CHOKEPOINT_APPEARANCE"] ?? "light"
 let runningLight = appearanceName != "dark"
 Palette.forcedAppearance = runningLight
 
@@ -861,16 +861,16 @@ check("labels: a network interface does not", !sess("Network").isStorageLike)
 // Two copies both write history.json and neither knows about the other's sessions,
 // so whichever saves last discards the other's transfers.
 do {
-    let path = NSTemporaryDirectory() + "bottleneck-test-\(UUID().uuidString).lock"
+    let path = NSTemporaryDirectory() + "chokepoint-test-\(UUID().uuidString).lock"
     defer { try? FileManager.default.removeItem(atPath: path) }
     check("instance: the first claim succeeds", SingleInstance.claim(at: path))
     check("instance: a second claim on the same lock is refused",
           !SingleInstance.claim(at: path))
-    let other = NSTemporaryDirectory() + "bottleneck-test-\(UUID().uuidString).lock"
+    let other = NSTemporaryDirectory() + "chokepoint-test-\(UUID().uuidString).lock"
     defer { try? FileManager.default.removeItem(atPath: other) }
     check("instance: a different lock file is independent", SingleInstance.claim(at: other))
     check("instance: an unwritable location does not block startup",
-          SingleInstance.claim(at: "/this/path/cannot/exist/bottleneck.lock"))
+          SingleInstance.claim(at: "/this/path/cannot/exist/chokepoint.lock"))
 }
 
 
@@ -1464,6 +1464,34 @@ check("rename: nothing to do on a machine that never had the old app",
       !Migration.shouldCarry(fileExistsInOld: false, fileExistsInNew: false))
 check("rename: nor once it has already run",
       !Migration.shouldCarry(fileExistsInOld: false, fileExistsInNew: true))
+
+// The second rename made the old-name list a list. These pin the invariants that
+// list relies on, because getting one wrong loses a user's history silently: the
+// files stay where they are and nothing ever reads them again.
+check("rename: the current name is not also a previous one",
+      !Migration.previousNames.contains(Migration.newName),
+      Migration.newName)
+check("rename: every previous name has a domain and an agent label",
+      Migration.previousDomains.count == Migration.previousNames.count
+        && Migration.previousAgentLabels.count == Migration.previousNames.count,
+      "\(Migration.previousNames.count) names, \(Migration.previousDomains.count) domains, "
+        + "\(Migration.previousAgentLabels.count) labels")
+for (index, name) in Migration.previousNames.enumerated() {
+    check("rename: \(name)'s domain follows from its name",
+          Migration.previousDomains[index] == "local." + name.lowercased(),
+          Migration.previousDomains[index])
+    check("rename: \(name)'s watcher label follows from its domain",
+          Migration.previousAgentLabels[index] == Migration.previousDomains[index] + ".card-watch",
+          Migration.previousAgentLabels[index])
+}
+check("rename: the new domain follows from the new name",
+      Migration.newDomain == "local." + Migration.newName.lowercased(),
+      Migration.newDomain)
+// run() walks these reversed, so the most recent name has to be last or a stale
+// Limen log would win over the Bottleneck one that replaced it.
+check("rename: the most recent old name is last, so reversed() reaches it first",
+      Migration.previousNames.last == "Bottleneck",
+      Migration.previousNames.last ?? "none")
 
 // Badges are laid out left to right along a column, so each one has to be measured
 // against what is left of that column rather than against the whole of it. Clipping

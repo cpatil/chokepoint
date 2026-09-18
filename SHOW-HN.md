@@ -8,7 +8,7 @@ before submitting.
 
 Suggested title — describes only what the app unquestionably does:
 
-    Show HN: Bottleneck – per-device storage and network rates for macOS
+    Show HN: Chokepoint – per-device storage and network rates for macOS
 
 Let the diagnosis feature earn attention in the body, with its caveats.
 
@@ -46,7 +46,7 @@ below the main claims, not above them.
 Leading with the limits is what makes the rest credible.
 
 - Byte counters are solid. Everything downstream — which component was the
-  bottleneck, which process moved which bytes, why a card took writes — is inference.
+  chokepoint, which process moved which bytes, why a card took writes — is inference.
 - Process attribution is an association, not accounting. `proc_pid_rusage` is
   process-wide; the open-descriptor check only proves the process holds a file on that
   volume.

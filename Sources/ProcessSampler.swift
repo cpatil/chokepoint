@@ -288,7 +288,7 @@ enum ProcessSampler {
                 String(cString: raw.baseAddress!.assumingMemoryBound(to: CChar.self))
             }
             // Every mount, not just /Volumes. The filesystem is a fact about any
-            // device Bottleneck shows, and the boot drive - which is mounted at / and
+            // device Chokepoint shows, and the boot drive - which is mounted at / and
             // under /System/Volumes - was the one row that could never say what it
             // was formatted as. Same filter, same mistake, as the one that left the
             // internal drive with no capacity gauge.

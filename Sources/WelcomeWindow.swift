@@ -92,7 +92,7 @@ final class SetupWindowController: NSWindowController {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 430),
                               styleMask: [.titled, .closable],
                               backing: .buffered, defer: false)
-        window.title = "Bottleneck Setup"
+        window.title = "Chokepoint Setup"
         window.center()
         self.init(window: window)
         buildPages()
@@ -111,13 +111,13 @@ final class SetupWindowController: NSWindowController {
     /// a manual rather than a setup, and is discoverable by doing it.
     private func buildPages() {
         pages = [
-            Page(title: "What Bottleneck shows you",
+            Page(title: "What Chokepoint shows you",
                  body: "Read and write rates per device, and a session history with a "
                      + "reading of what limited each transfer.\n\n"
                      + "It makes no network connections. The speed catalogue it "
                      + "compares against ships inside the app."),
 
-            Page(title: "Where Bottleneck is installed",
+            Page(title: "Where Chokepoint is installed",
                  body: "macOS restricts an app still sitting in Downloads, and refuses "
                      + "one running from a disk image.",
                  status: {
@@ -139,10 +139,10 @@ final class SetupWindowController: NSWindowController {
                  })),
 
             Page(title: "Gatekeeper",
-                 body: "Bottleneck is signed ad-hoc, not notarised, so a downloaded "
+                 body: "Chokepoint is signed ad-hoc, not notarised, so a downloaded "
                      + "copy is refused by macOS. A build from source is not.",
                  steps: [
-                    Step(text: "Open Bottleneck and let macOS refuse it."),
+                    Step(text: "Open Chokepoint and let macOS refuse it."),
                     Step(text: "Go to Privacy & Security, then Security.",
                          button: ("Open Privacy & Security", { Setup.openSecuritySettings() })),
                     Step(text: "Press \u{201C}Open Anyway\u{201D}. It is withdrawn after a "
@@ -152,7 +152,7 @@ final class SetupWindowController: NSWindowController {
                          button: ("Copy Terminal command", {
                              NSPasteboard.general.clearContents()
                              NSPasteboard.general.setString(
-                                "xattr -dr com.apple.quarantine Bottleneck.app",
+                                "xattr -dr com.apple.quarantine Chokepoint.app",
                                 forType: .string)
                          })),
                  ],
@@ -177,12 +177,12 @@ final class SetupWindowController: NSWindowController {
                          button: ("Open Privacy Settings", {
                              Setup.openRemovablePrivacySettings()
                          })),
-                    Step(text: "Granted while running? Restart Bottleneck."),
+                    Step(text: "Granted while running? Restart Chokepoint."),
                  ],
                  status: {
                      switch Setup.removableAccess {
                      case .granted:
-                         return .good("Bottleneck can read the attached card.")
+                         return .good("Chokepoint can read the attached card.")
                      case .denied:
                          return .problem("Access refused. Grant it, then restart.")
                      case .untested:
@@ -307,13 +307,13 @@ final class SetupWindowController: NSWindowController {
         switch Setup.requestRemovableAccess() {
         case .granted:
             alert.messageText = "Access granted"
-            alert.informativeText = "Bottleneck can read the attached removable volume."
+            alert.informativeText = "Chokepoint can read the attached removable volume."
         case .denied:
             alert.messageText = "macOS refused"
             alert.informativeText = "Either the prompt was answered with Don\u{2019}t "
                 + "Allow, or it was answered that way before. macOS will not ask twice: "
-                + "turn Bottleneck on under Privacy & Security \u{25B8} Files and "
-                + "Folders \u{25B8} Removable Volumes, then restart Bottleneck."
+                + "turn Chokepoint on under Privacy & Security \u{25B8} Files and "
+                + "Folders \u{25B8} Removable Volumes, then restart Chokepoint."
         case .untested:
             alert.messageText = "Nothing attached to ask about"
             alert.informativeText = "Insert a card or plug in a removable drive, then "

@@ -110,7 +110,7 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
 
     override var isFlipped: Bool { true }
 
-    /// Act on the first click even when Bottleneck is not the active app. This is a window
+    /// Act on the first click even when Chokepoint is not the active app. This is a window
     /// you glance at while working in something else; spending a click just to focus
     /// it before you can fold a group or drag a row is a click too many.
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -467,7 +467,7 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
         let mounts: [String]
         /// Moving data right now: worth a question before pulling the floor out.
         let active: Bool
-        /// Processes Bottleneck saw holding files open here. macOS will refuse a busy
+        /// Processes Chokepoint saw holding files open here. macOS will refuse a busy
         /// volume without saying who is holding it; this app already knows.
         let holders: [String]
 
@@ -485,7 +485,7 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
     static func ejectFailure(name: String, reason: String, holders: [String]) -> String {
         var text = "macOS would not eject \u{201C}\(name)\u{201D}: " + reason
         guard !holders.isEmpty else { return text }
-        text += "\n\nBottleneck last saw " + holders.joined(separator: ", ")
+        text += "\n\nChokepoint last saw " + holders.joined(separator: ", ")
             + (holders.count == 1 ? " reading or writing here." : " reading or writing here.")
         return text
     }
@@ -565,11 +565,11 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
                     + "will index it. Choosing this again removes that file.\n\n"
                     + "Indexing already under way finishes; it will not start again."
                 : "The .metadata_never_index file has been removed. Whether macOS "
-                    + "actually indexes the volume now is its decision, not Bottleneck's."
+                    + "actually indexes the volume now is its decision, not Chokepoint's."
         } else {
             alert.messageText = "Could not change \(failed.joined(separator: ", "))"
             alert.informativeText = "macOS withholds access to removable volumes until "
-                + "it is granted. Allow Bottleneck under System Settings ▸ Privacy & "
+                + "it is granted. Allow Chokepoint under System Settings ▸ Privacy & "
                 + "Security ▸ Files and Folders ▸ Removable Volumes, then try again."
         }
         alert.addButton(withTitle: "OK")

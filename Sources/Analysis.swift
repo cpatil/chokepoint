@@ -420,7 +420,7 @@ enum Analysis {
                           + "can trigger metadata writes")
         }
 
-        // The byte counts are measured. What caused them is not: Bottleneck sees that
+        // The byte counts are measured. What caused them is not: Chokepoint sees that
         // writes happened, not who issued them. macOS also batches access-time
         // updates rather than writing one per read, so the candidates below are
         // possibilities to check, not a diagnosis.

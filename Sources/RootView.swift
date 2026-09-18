@@ -1,6 +1,6 @@
 import Cocoa
 
-/// Two panels sharing one layout: what the colours mean, and how Bottleneck reaches the
+/// Two panels sharing one layout: what the colours mean, and how Chokepoint reaches the
 /// conclusions it draws.
 ///
 /// Panels rather than alerts. The alert these replaced was six paragraphs in one
@@ -41,7 +41,7 @@ final class LegendView: NSView {
         ]
     }
 
-    /// Every statement Bottleneck makes that is not a direct reading, with what it rests on
+    /// Every statement Chokepoint makes that is not a direct reading, with what it rests on
     /// and - where there is one - what it cannot rule out. Written out in full because
     /// "trust me" is not an answer to "how do you know?".
     struct Statement {
@@ -54,10 +54,10 @@ final class LegendView: NSView {
         [
             Statement(inferred: false, claim: "\u{201C}R 86 MB/s\u{201D}, \u{201C}2.36 TB used\u{201D}",
                       basis: "Read straight from the kernel's byte counters and the "
-                           + "filesystem. Bottleneck only divides by the interval."),
+                           + "filesystem. Chokepoint only divides by the interval."),
             Statement(inferred: false, claim: "\u{201C}0% link utilization\u{201D}",
                       basis: "The rate divided by the link speed the system reported "
-                           + "for that port. Both numbers are given to Bottleneck."),
+                           + "for that port. Both numbers are given to Chokepoint."),
             Statement(inferred: true, claim: "\u{201C}SDXC 128 GB\u{201D}",
                       basis: "The SD family follows from the capacity once the reader "
                            + "says the medium is removable. The card's bus interface "
@@ -225,7 +225,7 @@ enum LegendWindow {
         let window = NSWindow(contentRect: view.frame,
                               styleMask: [.titled, .closable],
                               backing: .buffered, defer: false)
-        window.title = mode == .colors ? "Color Key" : "How Bottleneck Infers"
+        window.title = mode == .colors ? "Color Key" : "How Chokepoint Infers"
         window.contentView = view
         // Over the window it explains rather than the middle of the display: a panel
         // that opens on another screen is a panel you have to go and find.
@@ -287,7 +287,7 @@ final class RootView: NSView, NSSplitViewDelegate {
     let intervalPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     let inactiveToggle = NSButton(checkboxWithTitle: "Show all", target: nil, action: nil)
     /// Two questions, two buttons. The key answers "what does this color mean"; the
-    /// information button answers "how does Bottleneck know that", which is a different
+    /// information button answers "how does Chokepoint know that", which is a different
     /// question and the one that decides whether to believe any of it.
     let legendButton = NSButton(title: "\u{2248} Color key", target: nil, action: nil)
     let infoButton = NSButton(title: "\u{24D8}", target: nil, action: nil)
@@ -359,7 +359,7 @@ final class RootView: NSView, NSSplitViewDelegate {
             button.controlSize = .small
             button.font = NSFont.systemFont(ofSize: 13)
             button.toolTip = "Work out the \(what) order again.\n\n"
-                + "\"Active first\" is decided when Bottleneck starts and then held, so rows "
+                + "\"Active first\" is decided when Chokepoint starts and then held, so rows "
                 + "do not swap places while you are reading them. This asks for it to "
                 + "be reconsidered - after plugging something in, say."
         }
@@ -397,7 +397,7 @@ final class RootView: NSView, NSSplitViewDelegate {
         infoButton.image = Icons.infoImage()
         infoButton.imagePosition = .imageOnly
         infoButton.title = ""
-        infoButton.toolTip = "How Bottleneck infers: every conclusion it draws, and what "
+        infoButton.toolTip = "How Chokepoint infers: every conclusion it draws, and what "
             + "each one is based on."
 
 
@@ -408,7 +408,7 @@ final class RootView: NSView, NSSplitViewDelegate {
         outerSplit.isVertical = false
         outerSplit.dividerStyle = .thin
         outerSplit.delegate = self
-        outerSplit.autosaveName = "BottleneckRows"
+        outerSplit.autosaveName = "ChokepointRows"
         outerSplit.addArrangedSubview(columnsSplit)
         outerSplit.addArrangedSubview(historyColumn)
 
@@ -491,7 +491,7 @@ final class RootView: NSView, NSSplitViewDelegate {
         // A divider position saved while side by side is a width; reusing it as a
         // height would drop the divider somewhere arbitrary. Each arrangement keeps
         // its own remembered position.
-        columnsSplit.autosaveName = stacked ? "BottleneckColumnsStacked" : "BottleneckColumns"
+        columnsSplit.autosaveName = stacked ? "ChokepointColumnsStacked" : "ChokepointColumns"
         for view in order { columnsSplit.addArrangedSubview(view) }
         columnsSplit.adjustSubviews()
         needsLayout = true
@@ -771,22 +771,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Before anything reads either location: this app used to be called Limen, and
-        // its log, settings and watcher are all still filed under that name.
+        // Before anything reads either location: this app has been called Limen and
+        // then Bottleneck, and a user's log, settings and watcher may still be filed
+        // under either of those older names.
         Migration.run()
 
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 980, height: 660),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered,
                           defer: false)
-        window.title = "Bottleneck"
+        window.title = "Chokepoint"
         // Without this, mouseMoved is never delivered and hover magnification never
         // fires, however the tracking areas are configured.
         window.acceptsMouseMovedEvents = true
         window.minSize = NSSize(width: 760, height: 420)
         window.contentView = root
         window.center()
-        window.setFrameAutosaveName("BottleneckWindow")
+        window.setFrameAutosaveName("ChokepointWindow")
         window.makeKeyAndOrderFront(nil)
         AppDelegate.applyAppearance()
 
@@ -858,7 +859,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Catalogue.revertToBuiltIn()
             let done = NSAlert()
             done.messageText = "Back to the built-in catalogue"
-            done.informativeText = "Restart Bottleneck to use it."
+            done.informativeText = "Restart Chokepoint to use it."
             done.addButton(withTitle: "OK")
             done.runModal()
             return
@@ -867,12 +868,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.runModal()
     }
 
-    /// Everything Bottleneck remembers about how you like it, back to how it arrived.
+    /// Everything Chokepoint remembers about how you like it, back to how it arrived.
     /// Deliberately does not touch the transfer log or any card - those are your data,
     /// and each has its own undo.
     @objc func resetSettings(_ sender: Any?) {
         let alert = NSAlert()
-        alert.messageText = "Put Bottleneck's settings back to their defaults?"
+        alert.messageText = "Put Chokepoint's settings back to their defaults?"
         alert.informativeText = "Window size, section order, sorting, units, appearance, "
             + "row detail and the Cards switches all return to how they arrived.\n\n"
             + "Your transfer log is not touched, and no card is changed."
@@ -956,7 +957,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             let alert = NSAlert()
             alert.messageText = "Check for an updated speed catalogue?"
-            alert.informativeText = "It has been a month since the last check. Bottleneck does not "
+            alert.informativeText = "It has been a month since the last check. Chokepoint does not "
                 + "contact the network on its own, so this only happens if you ask it to."
             alert.addButton(withTitle: "Check Now")
             alert.addButton(withTitle: "Not Now")
@@ -976,7 +977,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 alert.informativeText = error
             } else if let version = version, version > 0 {
                 alert.messageText = "Speed catalogue updated"
-                alert.informativeText = "Now at version \(version). Restart Bottleneck to use it."
+                alert.informativeText = "Now at version \(version). Restart Chokepoint to use it."
             } else {
                 alert.messageText = "Already up to date"
                 alert.informativeText = "The catalogue in use is the newest published."

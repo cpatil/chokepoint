@@ -195,7 +195,7 @@ final class TransferLog {
             return override.appendingPathComponent("history.json")
         }
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Bottleneck", isDirectory: true)
+            .appendingPathComponent("Chokepoint", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("history.json")
     }
@@ -208,7 +208,7 @@ final class TransferLog {
     static func makeForTesting(minimumSize: UInt64) -> TransferLog {
         let log = TransferLog(persist: true)
         log.overrideDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("bottleneck-test-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("chokepoint-test-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: log.overrideDirectory!,
                                                  withIntermediateDirectories: true)
         log.testMinimumSize = minimumSize
