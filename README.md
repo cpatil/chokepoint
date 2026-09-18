@@ -4,7 +4,10 @@ Your transfers' throughput, and what's limiting it. Per-device storage and netwo
 rates for macOS, with a session history and evidence-backed readings of what held
 each copy back.
 
-![Chokepoint](docs/chokepoint.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/chokepoint.png">
+  <img alt="Chokepoint: five cards and drives, their rates, and the session log" src="docs/chokepoint-light.png">
+</picture>
 
 `iostat -w 1 disk0 disk2` will give you per-disk throughput already. Chokepoint maps those
 devices back to product names and mounted volumes, separates reads from writes, puts
