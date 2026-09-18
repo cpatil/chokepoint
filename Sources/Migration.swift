@@ -40,6 +40,22 @@ enum Migration {
         fileExistsInOld && !fileExistsInNew
     }
 
+    /// Which of an old domain's keys belong in the new one.
+    ///
+    /// Per key, for exactly the reason the file carry is per file - and this half did
+    /// not learn it the first time. Guarding on the whole new domain being absent
+    /// never fires: main.swift reads UserDefaults while building the menu bar, before
+    /// applicationDidFinishLaunching runs, and that is enough for the domain to
+    /// exist. The rename therefore abandoned every setting in silence - the welcome
+    /// screen reappeared, collapsed groups sprang open, and every sort order reset.
+    ///
+    /// AppKit's own keys are left behind. They carry the app's name in them -
+    /// "NSWindow Frame BottleneckWindow" - so under a new name they address a window
+    /// that does not exist and are dead weight forever.
+    static func keysToCarry(from old: [String: Any], into new: [String: Any]) -> [String] {
+        old.keys.filter { !$0.hasPrefix("NS") && new[$0] == nil }.sorted()
+    }
+
     static func run(fileManager: FileManager = .default,
                     defaults: UserDefaults = .standard) {
         let support = fileManager.urls(for: .applicationSupportDirectory,
@@ -77,14 +93,18 @@ enum Migration {
         // pass. Only what the old app actually wrote: copying the whole domain would
         // drag in AppKit's own window-frame keys under the wrong name.
         //
-        // Newest first again, and stop at the first one found: settings from the name
-        // most recently used are the ones the user last chose.
-        if defaults.persistentDomain(forName: newDomain) == nil {
-            for domain in previousDomains.reversed() {
-                guard let carried = defaults.persistentDomain(forName: domain) else { continue }
-                defaults.setPersistentDomain(carried, forName: newDomain)
-                break
+        // Newest first, and a key already present in the new domain always wins:
+        // whatever this launch has written is more current than anything an older
+        // name holds.
+        var merged = defaults.persistentDomain(forName: newDomain) ?? [:]
+        for domain in previousDomains.reversed() {
+            guard let carried = defaults.persistentDomain(forName: domain) else { continue }
+            for key in keysToCarry(from: carried, into: merged) {
+                merged[key] = carried[key]
             }
+        }
+        if !merged.isEmpty {
+            defaults.setPersistentDomain(merged, forName: newDomain)
         }
 
         // The old watcher would keep running, keep reading the old preferences domain,

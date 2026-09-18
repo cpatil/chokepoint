@@ -1489,6 +1489,28 @@ check("rename: the new domain follows from the new name",
       Migration.newDomain)
 // run() walks these reversed, so the most recent name has to be last or a stale
 // Limen log would win over the Bottleneck one that replaced it.
+// Preferences are carried per key for the same reason files are carried per file:
+// main.swift reads UserDefaults while building the menu bar, before the migration
+// runs, so the new domain always exists by then. Guarding on the domain as a whole
+// meant every setting was silently abandoned - which is exactly what happened on the
+// Bottleneck to Chokepoint hop before this was fixed.
+do {
+    let old: [String: Any] = ["SeenWelcome": true, "SortOrder.Storage": "rate",
+                              "Interval": 1, "NSWindow Frame BottleneckWindow": "0 0 900 600"]
+    // What the launch has already written before the migration gets a chance.
+    let new: [String: Any] = ["Interval": 2, "NSWindow Frame ChokepointWindow": "0 0 400 300"]
+    let carried = Migration.keysToCarry(from: old, into: new)
+    check("rename: a setting the new domain lacks is carried",
+          carried.contains("SeenWelcome") && carried.contains("SortOrder.Storage"),
+          carried.joined(separator: ", "))
+    check("rename: one this launch already wrote is left alone",
+          !carried.contains("Interval"), carried.joined(separator: ", "))
+    check("rename: AppKit's own keys are not dragged across under a dead name",
+          !carried.contains(where: { $0.hasPrefix("NS") }), carried.joined(separator: ", "))
+    check("rename: an existing new domain does not block the carry",
+          !carried.isEmpty, "\(carried.count)")
+}
+
 check("rename: the most recent old name is last, so reversed() reaches it first",
       Migration.previousNames.last == "Bottleneck",
       Migration.previousNames.last ?? "none")
