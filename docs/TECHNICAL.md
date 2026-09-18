@@ -14,6 +14,16 @@ Only hardware interfaces are listed. A VPN tunnel or a bridge carries traffic th
 screen twice and summing them reports roughly double. **Show all** brings back tunnels,
 bridges, loopback and the long tail of virtual interfaces.
 
+**Bytes read are the device's, not the file's.** Copying a 898 MB file off an SD card
+moves 1.15 GB across the bus — 1.28x — because the kernel reads ahead on sequential
+access, and read-ahead that is never used was still pulled off the medium. Measured
+directly from `IOBlockStorageDriver` around a copy, with nothing else running and
+Spotlight disabled on the card, so it is the hardware doing it rather than the
+accounting. Writes do not behave this way: the same test wrote 1,217,475,072 bytes for
+a 1,217,133,041-byte file, +0.03%, the excess being filesystem metadata. So a session
+reporting a third more read than you think you copied is usually right, and comparing
+"bytes read" against a file size will not reconcile.
+
 Byte counters are the part Chokepoint is confident about. Everything downstream of them —
 which component was the chokepoint, which process moved which bytes, why a card took
 writes — is inference, and the interface tries to say which is which.
