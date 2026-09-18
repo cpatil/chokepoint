@@ -51,8 +51,45 @@ Swift's ABI-stable runtime arrived in the OS, since no Swift libraries are embed
 but nothing between 10.14.4 and 11.7 has been tested. The arm64 slice targets 11.0,
 as low as Apple Silicon goes.
 
-`./test.sh` runs 219 checks. `./deploy.sh <ssh-host>` builds and installs on another
-Mac over SSH.
+`./test.sh` runs 451 checks, twice — once in each appearance, because several colours
+are chosen separately for light and dark and one that reads well on one ground can be
+unreadable on the other. `./deploy.sh <ssh-host>` builds and installs on another Mac
+over SSH.
+
+### Looking at the interface
+
+The rows and panels are custom-drawn, so their layout is not something a test can
+fully assert about: a panel measured for one arrangement and painted in another clips
+its own content, and no check on a string catches that. Two tools draw the interface
+offscreen so it can be looked at.
+
+```bash
+tools/render-card.sh                            # -> build/cards/*.png
+tools/render-window.sh docs /Volumes/sd-17      # -> docs/*.png
+```
+
+`render-card` draws the hover panel for four fixtures — a multi-volume drive, a
+single-volume one, a card, and a partitioned disk whose volumes disagree about format,
+allocation unit and write protection — and answers *does this layout still hold*.
+
+`render-window` drives a real `Monitor` and answers *what does it look like with four
+cards in it*: the rows, rates, bars and sessions are the machine's own. It is built
+universal, so the binary can be copied to another Mac and run there over SSH — which
+is how the screenshot above was taken. `screencapture` only sees the visible Space,
+and the Mac with the interesting hardware in it is usually one somebody else is
+sitting at.
+
+Naming volumes puts read traffic on them first, so the charts have something to show.
+It reads many files rather than one: a single file read in a loop touches the medium
+once and is served from the unified buffer cache ever after, which renders every card
+at 0 B/s while `dd` is visibly running. Reads only — nothing is written to the media —
+but the bytes are real, so the monitor logs real sessions just as using the app would.
+
+Both tools render each appearance separately, and both have to be told which one twice
+over: `Palette` has no running application to ask, and AppKit's dynamic colours resolve
+against the *view's* `effectiveAppearance`, which for a view with no window comes from
+`NSApp` and so from whatever that Mac is set to. Miss the second and the two passes
+come out identical, which looks like a working check and is not one.
 
 ## Where the numbers come from
 
