@@ -553,13 +553,21 @@ final class RootView: NSView, NSSplitViewDelegate {
     }
 
     /// Whether hovering enlarges anything. On by default - it is the reason the small
-    /// type in the rows is readable - but it follows the pointer everywhere, and if you
-    /// are reading rather than inspecting that is a distraction. Off, the tooltips
-    /// remain, so a clipped name is still recoverable.
+    /// type in the rows is readable - but it appears for the pointer merely passing,
+    /// and if you are reading rather than inspecting that is a distraction. Off, a
+    /// click opens the same card, and the tooltips remain so a clipped name is still
+    /// recoverable.
     static let hoverKey = "HoverMagnifier"
     static var hoverEnabled: Bool {
-        UserDefaults.standard.object(forKey: hoverKey) as? Bool ?? true
+        hoverDefault(stored: UserDefaults.standard.object(forKey: hoverKey) as? Bool)
     }
+
+    /// Off unless asked for. The card is opened by clicking a row and closed by
+    /// clicking it again, the cross, or Escape - a deliberate act each way. Hover
+    /// showed a three-panel view for the pointer merely passing, and even docked and
+    /// dwell-gated it was too much for reading; it stays available from the View menu
+    /// for anyone who wants it back.
+    static func hoverDefault(stored: Bool?) -> Bool { stored ?? false }
 
     deinit {
         if let monitor = escapeMonitor { NSEvent.removeMonitor(monitor) }

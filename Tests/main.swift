@@ -1833,6 +1833,12 @@ do {
     let tall = RootView.dock(cardSize: NSSize(width: 400, height: 1200), rowRect: leftRow, in: window)
     check("dock: a card taller than the window keeps its top on screen", tall.minY == 8, "\(tall)")
 
+    // The card is opened by a click. Hover stays a choice, off until asked for -
+    // a three-panel view for the pointer merely passing was the complaint.
+    check("hover: off unless the user turned it on", !RootView.hoverDefault(stored: nil))
+    check("hover: honoured when they did", RootView.hoverDefault(stored: true))
+    check("hover: and when they turned it off again", !RootView.hoverDefault(stored: false))
+
     check("dock: hover waits long enough to be deliberate, not so long it feels broken",
           RootView.hoverDwell >= 0.2 && RootView.hoverDwell <= 0.5, "\(RootView.hoverDwell)")
 }

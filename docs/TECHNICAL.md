@@ -119,7 +119,7 @@ protocol to be USB or Secure Digital.
 ## How full a device is
 
 A level in its own lane between the icon and the name, filled from the bottom: green
-while there is room, amber past 70%, red past 90%. The hover card gives the figures.
+while there is room, amber past 70%, red past 90%. Click the row for the figures.
 
 Counted **once per container**. Volumes in one APFS container each report the
 container's capacity and free space as their own, so a disk with four volumes mounted
@@ -178,7 +178,7 @@ has a way back, offered where the change was made:
 | Downloads a newer speed catalogue | **Use the Built-in Speed Catalogue** |
 | Remembers layout, sorting, units | **Reset Settings…** — leaves your log and your cards alone |
 | Anything the Cards menu switched on | Switch it off; the watcher is removed with the last one |
-| Pins a hover card open | The cross on the card, Escape, or clicking the same row again |
+| Opens a device's card | The cross on the card, Escape, or clicking the same row again |
 
 Where something is genuinely irreversible it asks first, rather than succeeding quietly.
 
@@ -186,7 +186,7 @@ Where something is genuinely irreversible it asks first, rather than succeeding 
 
 Rows shorten what does not fit. Everything they shorten — the device name, the vendor,
 the identifier, the volumes, the comparison line, the recommendation — is carried in
-full by the card that appears on hover, and by **Copy** in the right-click menu. If a
+full by the card a click opens, and by **Copy** in the right-click menu. If a
 string is clipped anywhere with no way to see it whole, that is a bug.
 
 ## What is measured and what is inferred
@@ -204,8 +204,8 @@ it survives greyscale, colour blindness and the accessibility description, where
 colour does not.
 
 **Color key** at the top left opens it, the information button beside it explains the
-difference at length, and Help ▸ What the Colors Mean does both. Hovering a row brings up its card, which says what
-each conclusion on that row was drawn from; clicking a row keeps that card open —
+difference at length, and Help ▸ What the Colors Mean does both. Clicking a row opens its card, which says what
+each conclusion on that row was drawn from, and stays until it is dismissed —
 with a cross to dismiss it, or Escape — so it can be read and copied from without the
 pointer having to stay still.
 
@@ -270,7 +270,7 @@ tools/render-card.sh                            # -> build/cards/*.png
 tools/render-window.sh docs /Volumes/sd-17      # -> docs/*.png
 ```
 
-`render-card` draws the hover panel for four fixtures — a multi-volume drive, a
+`render-card` draws a device's card for four fixtures — a multi-volume drive, a
 single-volume one, a card, and a partitioned disk whose volumes disagree about format,
 allocation unit and write protection — and answers *does this layout still hold*.
 
