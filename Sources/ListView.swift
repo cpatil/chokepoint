@@ -24,10 +24,12 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
     static let rowHeight: CGFloat = 84
 
     /// Reports what the pointer is over, so the window can magnify it.
-    var onHover: ((Row?, MagnifierView.Zone, String, NSPoint) -> Void)?
+    /// The row's frame in window coordinates, not the pointer: the card is placed
+    /// from the row, so it holds still while the pointer wanders within one.
+    var onHover: ((Row?, MagnifierView.Zone, String, NSRect) -> Void)?
     /// A click that turned out not to be a drag. The card for that row is then held
     /// open until it is dismissed, so it can be read and copied from.
-    var onPin: ((Row, MagnifierView.Zone, String, NSPoint) -> Void)?
+    var onPin: ((Row, MagnifierView.Zone, String, NSRect) -> Void)?
     /// Emitted when rows have been dragged into a new arrangement, with the row ids in
     /// their new order. The window persists it and switches this list to custom order.
     var onReorder: (([String]) -> Void)?
@@ -170,6 +172,13 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
         return (row, .info)
     }
 
+    /// The full-width band of the row under a point, in window coordinates.
+    private func rowRect(containing local: NSPoint) -> NSRect {
+        let top = floor(local.y / TrafficListView.rowHeight) * TrafficListView.rowHeight
+        return convert(NSRect(x: 0, y: top, width: bounds.width,
+                              height: TrafficListView.rowHeight), to: nil)
+    }
+
     override func mouseMoved(with event: NSEvent) {
         guard draggingIndex == nil else { return }
         let local = convert(event.locationInWindow, from: nil)
@@ -180,7 +189,7 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
             needsDisplay = true
         }
         if let (row, zone) = hit(local) {
-            onHover?(row, zone, identity(for: row), convert(local, to: nil))
+            onHover?(row, zone, identity(for: row), rowRect(containing: local))
         } else {
             onHover?(nil, .rate, "", .zero)
         }
@@ -336,7 +345,7 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
             // reaching for the grip should not open anything.
             let local = convert(event.locationInWindow, from: nil)
             if let (row, zone) = hit(local) {
-                onPin?(row, zone, identity(for: row), convert(local, to: nil))
+                onPin?(row, zone, identity(for: row), rowRect(containing: local))
             }
             return
         }

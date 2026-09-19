@@ -1788,6 +1788,55 @@ do {
     }
 }
 
+// ---- where the hover card goes ------------------------------------------------
+//
+// It used to be placed from the pointer, so a 400pt panel re-positioned on every
+// pixel of mouse travel - a large cursor, not a card. It is now placed from the row,
+// and these pin the two things that makes possible: it holds still, and it never
+// sits on the row it describes when there is anywhere else to be.
+do {
+    let window = NSRect(x: 0, y: 0, width: 1100, height: 800)
+    let card = NSSize(width: 400, height: 300)
+
+    // A row in the left-hand list: the card docks right, clear of it.
+    let leftRow = NSRect(x: 0, y: 200, width: 540, height: 84)
+    let l = RootView.dock(cardSize: card, rowRect: leftRow, in: window)
+    check("dock: a left-list row puts the card at the right edge",
+          l.maxX == window.maxX - 8, "\(l)")
+    check("dock: and the card does not cover that row",
+          l.minX >= leftRow.maxX, "\(l.minX) vs \(leftRow.maxX)")
+    check("dock: vertically centred on the row",
+          abs(l.midY - leftRow.midY) < 0.5, "\(l.midY) vs \(leftRow.midY)")
+
+    // A row in the right-hand list reaches the right edge: the card docks left.
+    let rightRow = NSRect(x: 560, y: 200, width: 540, height: 84)
+    let r = RootView.dock(cardSize: card, rowRect: rightRow, in: window)
+    check("dock: a right-list row puts the card at the left edge", r.minX == 8, "\(r)")
+    check("dock: and clear of that row", r.maxX <= rightRow.minX, "\(r.maxX) vs \(rightRow.minX)")
+
+    // The pointer wandering within a row changes nothing: same row, same place.
+    let again = RootView.dock(cardSize: card, rowRect: leftRow, in: window)
+    check("dock: the same row always gives the same place", again == l)
+
+    // Stacked lists span the window; nowhere is clear, so it takes the right.
+    let wide = NSRect(x: 0, y: 200, width: 1100, height: 84)
+    let w = RootView.dock(cardSize: card, rowRect: wide, in: window)
+    check("dock: a full-width row falls back to the right edge", w.maxX == window.maxX - 8, "\(w)")
+
+    // Near the top or bottom the card stays inside the window rather than centred.
+    let top = RootView.dock(cardSize: card, rowRect: NSRect(x: 0, y: 0, width: 540, height: 84), in: window)
+    check("dock: clamped inside the window at the top", top.minY == 8, "\(top)")
+    let bottom = RootView.dock(cardSize: card, rowRect: NSRect(x: 0, y: 760, width: 540, height: 84), in: window)
+    check("dock: and at the bottom", bottom.maxY == window.maxY - 8, "\(bottom)")
+
+    // A card taller than the window is not placed off it.
+    let tall = RootView.dock(cardSize: NSSize(width: 400, height: 1200), rowRect: leftRow, in: window)
+    check("dock: a card taller than the window keeps its top on screen", tall.minY == 8, "\(tall)")
+
+    check("dock: hover waits long enough to be deliberate, not so long it feels broken",
+          RootView.hoverDwell >= 0.2 && RootView.hoverDwell <= 0.5, "\(RootView.hoverDwell)")
+}
+
 
 print(failures == 0 ? "\n\(checks) checks passed" : "\n\(failures) of \(checks) checks FAILED")
 exit(failures == 0 ? 0 : 1)

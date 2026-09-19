@@ -431,11 +431,11 @@ final class RootView: NSView, NSSplitViewDelegate {
         // Hovering a rate or a chart enlarges it, so the small type in the rows does
         // not have to be squinted at.
         for list in [usbList, netList] {
-            list.onHover = { [weak self] row, zone, details, windowPoint in
-                self?.showMagnifier(row: row, zone: zone, details: details, at: windowPoint)
+            list.onHover = { [weak self] row, zone, details, rowRect in
+                self?.hoverMagnifier(row: row, zone: zone, details: details, over: rowRect)
             }
-            list.onPin = { [weak self] row, zone, details, windowPoint in
-                self?.pinMagnifier(row: row, zone: zone, details: details, at: windowPoint)
+            list.onPin = { [weak self] row, zone, details, rowRect in
+                self?.pinMagnifier(row: row, zone: zone, details: details, over: rowRect)
             }
         }
         magnifier.onClose = { [weak self] in self?.unpinMagnifier() }
@@ -596,14 +596,15 @@ final class RootView: NSView, NSSplitViewDelegate {
     private var escapeMonitor: Any?
 
     func pinMagnifier(row: Row, zone: MagnifierView.Zone,
-                      details: String, at windowPoint: NSPoint) {
+                      details: String, over rowRect: NSRect) {
+        hoverWork?.cancel()
         // Clicking the pinned row again puts it away: the same gesture that opened it.
         if pinnedRowID == row.id {
             unpinMagnifier()
             return
         }
         pinnedRowID = nil
-        showMagnifier(row: row, zone: zone, details: details, at: windowPoint, force: true)
+        showMagnifier(row: row, zone: zone, details: details, over: rowRect, force: true)
         guard !magnifier.isHidden else { return }
         pinnedRowID = row.id
         magnifier.isPinned = true
@@ -651,8 +652,64 @@ final class RootView: NSView, NSSplitViewDelegate {
 
     /// `force` is a click rather than the pointer passing over: it opens the card
     /// even for someone who has turned hover off, because they asked for this one.
+    /// How long the pointer has to rest on a row before the card appears.
+    ///
+    /// Hover is involuntary: crossing the list on the way to the toolbar is not a
+    /// request to see anything. Without this, that crossing flashed a card at every
+    /// row on the way past.
+    static let hoverDwell: TimeInterval = 0.3
+    private var hoverWork: DispatchWorkItem?
+    /// The row the open card belongs to, so a tick can re-place it without a pointer.
+    private var magnifierAnchor: NSRect = .zero
+
+    /// Hover: nothing at once. Leaving the list hides immediately; arriving on a row
+    /// starts the clock, and moving within that same row does not restart it.
+    private func hoverMagnifier(row: Row?, zone: MagnifierView.Zone,
+                                details: String, over rowRect: NSRect) {
+        guard let row = row else {
+            hoverWork?.cancel()
+            showMagnifier(row: nil, zone: zone, details: details, over: rowRect)
+            return
+        }
+        if row.id == magnifiedRowID, !magnifier.isHidden {
+            magnifier.zone = zone
+            magnifier.needsDisplay = true
+            return
+        }
+        hoverWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.showMagnifier(row: row, zone: zone, details: details, over: rowRect)
+        }
+        hoverWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + RootView.hoverDwell, execute: work)
+    }
+
+    /// Where the card goes, from the row it is about and nothing else.
+    ///
+    /// Docked to a window edge rather than beside the pointer: a card placed from the
+    /// pointer moved on every pixel of mouse travel, and a 400pt panel that follows
+    /// the cursor is not a hover card, it is a large cursor. Placed from the row, it
+    /// holds still for as long as the pointer stays on that row.
+    ///
+    /// The right edge unless the row reaches it - the row is in the right-hand list -
+    /// in which case the left, so the card never sits on the row it describes. A row
+    /// that spans the whole window (the lists stacked) cannot be avoided either way,
+    /// and takes the right. Vertically centred on the row, clamped to the window.
+    static func dock(cardSize: NSSize, rowRect: NSRect, in bounds: NSRect) -> NSRect {
+        let margin: CGFloat = 8
+        let right = bounds.maxX - cardSize.width - margin
+        let left = bounds.minX + margin
+        let x = (rowRect.maxX > right - margin && rowRect.minX > left + cardSize.width)
+            ? left : right
+        var y = rowRect.midY - cardSize.height / 2
+        y = min(max(bounds.minY + margin, y),
+                max(bounds.minY + margin, bounds.maxY - cardSize.height - margin))
+        return NSRect(x: max(bounds.minX + margin, x), y: y,
+                      width: cardSize.width, height: cardSize.height)
+    }
+
     private func showMagnifier(row: Row?, zone: MagnifierView.Zone,
-                               details: String, at windowPoint: NSPoint,
+                               details: String, over rowRect: NSRect,
                                force: Bool = false) {
         // A pinned card ignores the pointer entirely - that is what pinning is.
         if pinnedRowID != nil, !force { return }
@@ -673,7 +730,7 @@ final class RootView: NSView, NSSplitViewDelegate {
         magnifier.details = details
         magnifier.unit = usbList.unit
         magnifier.sampleInterval = sampleInterval
-        let local = convert(windowPoint, from: nil)
+        magnifierAnchor = convert(rowRect, from: nil)
         // Sized to its content, so long device names and hints are never cut off -
         // unless the window is shorter than the content, in which case the card sheds
         // its prose rather than overflowing. Clamping alone pinned a too-tall card to
@@ -686,12 +743,7 @@ final class RootView: NSView, NSSplitViewDelegate {
             height = min(magnifier.fittingHeight, available)
         }
         let size = NSSize(width: MagnifierView.width, height: height)
-        // Keep it beside the pointer but always fully on screen.
-        var x = local.x + 24
-        if x + size.width > bounds.maxX - 8 { x = local.x - size.width - 24 }
-        var y = local.y - size.height / 2
-        y = min(max(8, y), max(8, bounds.maxY - size.height - 8))
-        magnifier.frame = NSRect(x: max(8, x), y: y, width: size.width, height: size.height)
+        magnifier.frame = RootView.dock(cardSize: size, rowRect: magnifierAnchor, in: bounds)
         // Keep it in front even if subviews are added later.
         if subviews.last !== magnifier {
             magnifier.removeFromSuperview()
@@ -702,6 +754,7 @@ final class RootView: NSView, NSSplitViewDelegate {
     }
 
     func hideMagnifier() {
+        hoverWork?.cancel()
         magnifier.isHidden = true
         magnifiedRowID = nil
     }
@@ -721,12 +774,13 @@ final class RootView: NSView, NSSplitViewDelegate {
         magnifier.row = updated
         magnifier.unit = usbList.unit
         // Content can change height as processes and hints come and go.
-        var frame = magnifier.frame
+        // Re-placed from its row rather than nudged, so growth keeps it centred on
+        // the row instead of walking it up the window one hint at a time.
         let wanted = magnifier.fittingHeight
-        if abs(frame.height - wanted) > 1 {
-            frame.origin.y += frame.height - wanted
-            frame.size.height = wanted
-            magnifier.frame = frame
+        if abs(magnifier.frame.height - wanted) > 1, magnifierScroll.documentView !== magnifier {
+            magnifier.frame = RootView.dock(
+                cardSize: NSSize(width: MagnifierView.width, height: wanted),
+                rowRect: magnifierAnchor, in: bounds)
         }
         magnifier.needsDisplay = true
     }
