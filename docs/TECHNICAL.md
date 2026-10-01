@@ -14,6 +14,18 @@ Only hardware interfaces are listed. A VPN tunnel or a bridge carries traffic th
 screen twice and summing them reports roughly double. **Show all** brings back tunnels,
 bridges, loopback and the long tail of virtual interfaces.
 
+**Health is the same dictionary.** `Statistics` also carries `Retries (Read/Write)`
+and `Errors (Read/Write)`: operations the medium had to be asked for twice, and ones it
+failed. They are measured, cost nothing, and exist for every block device including a
+card in a USB reader. A healthy device is shown as silence; a non-zero count goes on
+the row in the warning colour, on the card with one inferred sentence about what it
+might mean, and on any session during which it rose. What is **not** available:
+SMART. macOS exposes one bit for the internal drive (`SMART Status: Verified`), full
+attributes need the NVMe SMART user client, and for an external USB drive there is
+nothing at all — macOS has no SAT passthrough, it needed a kext, and kexts are gone.
+No app on macOS can read SMART from a USB enclosure; Chokepoint does not pretend to.
+SD cards have no SMART in the specification to begin with.
+
 **Bytes read are the device's, not the file's.** Copying a 898 MB file off an SD card
 moves 1.15 GB across the bus — 1.28x — because the kernel reads ahead on sequential
 access, and read-ahead that is never used was still pulled off the medium. Measured

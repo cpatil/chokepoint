@@ -25,6 +25,11 @@ struct TransferSession: Codable {
     var wireless: Bool?
     var processes: [String]
     var volumes: [String]
+    /// Operations the medium could not complete first time during this session -
+    /// retries (asked again, answered) and faults (gave up). The sign of a card going
+    /// bad shows up here before it shows up as a speed. Optional so older logs decode.
+    var retries: UInt64?
+    var faults: UInt64?
     /// What the volume is, rather than what it is called or what it is plugged into.
     /// Optional so logs written before it existed still decode.
     var volumeID: String?
@@ -303,6 +308,8 @@ final class TransferLog {
                 if (session.volumeID ?? "").isEmpty, !row.volumeID.isEmpty {
                     session.volumeID = row.volumeID
                 }
+                session.retries = row.retries
+                session.faults = row.faults
                 if session.journalWrites != true { session.journalWrites = row.journalWrites }
                 if session.spotlight != true { session.spotlight = row.spotlight }
                 open[key] = session
@@ -333,6 +340,9 @@ final class TransferLog {
                 // that interval, so using it as the baseline discarded them. The
                 // previous sample's totals are the true starting point.
                 startTotals[key] = previousTotals[key] ?? (row.totalDown, row.totalUp)
+                startHealth[key] = (row.retries, row.faults)
+                open[key]?.retries = row.retries
+                open[key]?.faults = row.faults
             }
             return
         }
@@ -344,6 +354,8 @@ final class TransferLog {
     }
 
     private var startTotals: [String: (UInt64, UInt64)] = [:]
+    /// Retries and faults at the moment the session opened, for the same reason.
+    private var startHealth: [String: (UInt64, UInt64)] = [:]
     /// Totals seen at the previous sample, whether the device was busy or not.
     private var previousTotals: [String: (UInt64, UInt64)] = [:]
 
@@ -355,7 +367,19 @@ final class TransferLog {
         var out = session
         out.bytesRead = session.bytesRead >= start.0 ? session.bytesRead - start.0 : 0
         out.bytesWritten = session.bytesWritten >= start.1 ? session.bytesWritten - start.1 : 0
+        if let health = startHealth[key] {
+            out.retries = TransferLog.delta(session.retries, since: health.0)
+            out.faults = TransferLog.delta(session.faults, since: health.1)
+        }
         return out
+    }
+
+    /// A lifetime counter turned into "during this session". Nil stays nil, and a
+    /// counter that went backwards (device re-attached) counts as nothing rather than
+    /// as an enormous number.
+    static func delta(_ now: UInt64?, since start: UInt64) -> UInt64? {
+        guard let now = now else { return nil }
+        return now >= start ? now - start : 0
     }
 
     private func finish(key: String, session: TransferSession) {

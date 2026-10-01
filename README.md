@@ -42,6 +42,11 @@ stops it for good.
 Storage and network are on one screen, each measured against what that kind of device
 should manage — not against itself.
 
+**"Is this card starting to fail?"**
+A card that has to be asked twice is the first sign. Chokepoint counts every retry and
+error the medium reports, says nothing while they are zero, and puts the count on the
+row in red the moment they are not — and on the session where it happened.
+
 **"How full is that drive, really?"**
 A level beside every device: green, amber past 70%, red past 90%.
 

@@ -94,6 +94,26 @@ final class MagnifierView: NSView {
     /// What belongs under "what is in the reader": the evidence for the card badge.
     private func cardBlocks(for row: Row) -> [(text: String, font: NSFont, color: NSColor)] {
         var out: [(String, NSFont, NSColor)] = []
+        // The medium's health, measured: the same Statistics dictionary that gives the
+        // byte counts also counts operations the device had to be asked for twice, and
+        // ones it failed. Said plainly when clean, because "no errors" is the answer to
+        // a question people ask of a card they are about to trust a shoot to.
+        // A count is shown whenever it is non-zero. The clean line waits until the
+        // device has moved something: a card that has not been read yet has not
+        // demonstrated anything, and "no errors" would be a claim with no evidence.
+        if row.isStorageLike, row.totalDown + row.totalUp > 0 || !row.healthNote.isEmpty {
+            if row.healthNote.isEmpty {
+                out.append(("No errors or retries since it was attached.", smallFont, Palette.faint))
+            } else {
+                out.append((row.healthNote + " since it was attached.", smallFont, Palette.warning))
+                // Inferred: the counters say the device struggled, not why. A loose
+                // contact and a worn card look identical here.
+                out.append((Palette.marked("Retries are the medium being asked again; "
+                            + "errors are it giving up. Either is early wear or a poor "
+                            + "contact - worth a backup before it is worth a diagnosis."),
+                            smallFont, Palette.inferred))
+            }
+        }
         // The card badge above carries the mark. This is what the mark stands for -
         // the evidence, so it can be disagreed with.
         if !row.mediumClass.isEmpty {

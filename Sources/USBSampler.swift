@@ -18,6 +18,13 @@ struct USBDeviceInfo {
     var diskRead: UInt64 = 0
     var diskWritten: UInt64 = 0
 
+    /// Operations the medium could not complete first time. Retries are the host
+    /// asking again and getting an answer; errors are it giving up. Both are read
+    /// from the same Statistics dictionary as the byte counts, so they cost nothing
+    /// and are measured rather than inferred.
+    var retries: UInt64 = 0
+    var faults: UInt64 = 0
+
     /// True when this device exposes byte counters we can actually measure.
     var hasStorageCounters = false
     /// The medium itself can be removed from the device - a card in a reader, not a
@@ -174,6 +181,10 @@ enum USBSampler {
            let stats = property(entry, "Statistics") as? [String: Any] {
             info.diskRead += (stats["Bytes (Read)"] as? NSNumber)?.uint64Value ?? 0
             info.diskWritten += (stats["Bytes (Write)"] as? NSNumber)?.uint64Value ?? 0
+            info.retries += (stats["Retries (Read)"] as? NSNumber)?.uint64Value ?? 0
+            info.retries += (stats["Retries (Write)"] as? NSNumber)?.uint64Value ?? 0
+            info.faults += (stats["Errors (Read)"] as? NSNumber)?.uint64Value ?? 0
+            info.faults += (stats["Errors (Write)"] as? NSNumber)?.uint64Value ?? 0
             info.hasStorageCounters = true
         }
 

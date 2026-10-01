@@ -154,6 +154,10 @@ enum InternalStorage {
             }()
             info.diskRead += (stats["Bytes (Read)"] as? NSNumber)?.uint64Value ?? 0
             info.diskWritten += (stats["Bytes (Write)"] as? NSNumber)?.uint64Value ?? 0
+            info.retries += (stats["Retries (Read)"] as? NSNumber)?.uint64Value ?? 0
+            info.retries += (stats["Retries (Write)"] as? NSNumber)?.uint64Value ?? 0
+            info.faults += (stats["Errors (Read)"] as? NSNumber)?.uint64Value ?? 0
+            info.faults += (stats["Errors (Write)"] as? NSNumber)?.uint64Value ?? 0
             // BSD names let the same mount lookup and process attribution work for
             // internal drives as for external ones.
             collectBSDNames(under: driver, into: &info)

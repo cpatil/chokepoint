@@ -1147,6 +1147,13 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
                 footerX += Text.width(text, font: totalFont) + 10
             }
         }
+        // Health first, because it is the one thing on this line that can mean the
+        // data is at risk. Silent when zero.
+        if row.isStorageLike, !row.healthNote.isEmpty {
+            Text.draw(row.healthNote, at: NSPoint(x: footerX, y: rect.minY + 68),
+                      font: totalFont, color: Palette.warning)
+            footerX += Text.width(row.healthNote, font: totalFont) + 10
+        }
         if row.indexingWorthReporting {
             let note = row.indexingDisabled ? "Spotlight off" : "Spotlight not blocked"
             Text.draw(note, at: NSPoint(x: footerX, y: rect.minY + 68), font: totalFont,

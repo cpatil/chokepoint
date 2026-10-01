@@ -10,6 +10,10 @@ struct Row {
     var up: Double = 0
     var totalDown: UInt64 = 0
     var totalUp: UInt64 = 0
+    /// Since the device was attached: operations it had to be asked for twice, and
+    /// ones it failed outright. Zero is the normal state, and is shown as silence.
+    var retries: UInt64 = 0
+    var faults: UInt64 = 0
     var downHist: [Double] = []
     var upHist: [Double] = []
     var note: String = ""
@@ -182,6 +186,17 @@ struct Row {
 }
 
 extension Row {
+    /// What to say about the medium's health, or nothing. A healthy device says
+    /// nothing at all: a line reading "0 errors" on every row would be noise that
+    /// hides the one row where the number is not zero.
+    static func healthNote(retries: UInt64, faults: UInt64) -> String {
+        var parts: [String] = []
+        if faults > 0 { parts.append("\(faults) " + (faults == 1 ? "error" : "errors")) }
+        if retries > 0 { parts.append("\(retries) " + (retries == 1 ? "retry" : "retries")) }
+        return parts.joined(separator: " · ")
+    }
+    var healthNote: String { Row.healthNote(retries: retries, faults: faults) }
+
     /// Storage is read and written; a network carries traffic in and out. Using one
     /// vocabulary for both would be wrong for one of them.
     var isStorageLike: Bool { section != "Network" }
@@ -678,6 +693,8 @@ final class Monitor {
             row.up = up
             row.totalDown = totalDownBytes
             row.totalUp = totalUpBytes
+            row.retries = device.retries
+            row.faults = device.faults
             row.downHist = hist.down
             row.upHist = hist.up
             // "Active" means data is moving. It used to mean "has counters", which

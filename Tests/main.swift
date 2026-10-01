@@ -1843,6 +1843,23 @@ do {
           RootView.hoverDwell >= 0.2 && RootView.hoverDwell <= 0.5, "\(RootView.hoverDwell)")
 }
 
+// ---- the medium's health -----------------------------------------------------
+// Retries and errors come from the same Statistics dictionary as the byte counts,
+// so they are measured, universal, and free. The rule is silence when healthy: a
+// "0 errors" on every row would hide the one row where it is not zero.
+check("health: a healthy device says nothing", Row.healthNote(retries: 0, faults: 0).isEmpty)
+check("health: retries are named", Row.healthNote(retries: 3, faults: 0) == "3 retries")
+check("health: singular when one", Row.healthNote(retries: 1, faults: 1) == "1 error · 1 retry")
+check("health: errors come before retries, being worse",
+      Row.healthNote(retries: 2, faults: 5) == "5 errors · 2 retries")
+// A session reports what happened during it, from lifetime counters.
+check("health: a session's count is the difference since it opened",
+      TransferLog.delta(12, since: 10) == 2)
+check("health: a counter that went backwards counts as nothing",
+      TransferLog.delta(3, since: 10) == 0)
+check("health: and an old log with no counter stays unknown, not zero",
+      TransferLog.delta(nil, since: 10) == nil)
+
 
 print(failures == 0 ? "\n\(checks) checks passed" : "\n\(failures) of \(checks) checks FAILED")
 exit(failures == 0 ? 0 : 1)

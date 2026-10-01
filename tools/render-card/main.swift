@@ -112,6 +112,10 @@ func mixed() -> Row {
     r.volumes = ["Archive", "Scratch"]
     r.capacityBytes = 2_000_398_934_016
     r.usedBytes = 1_810_000_000_000
+    // A drive that has started to struggle, so the health line can be looked at: the
+    // only way to see the warning path, since every real device to hand is at zero.
+    r.retries = 14
+    r.faults = 2
     r.volumeDetails = [
         detail("Archive", "/dev/disk6s1", "exfat", 131_072, true,
                "11111111-2222-3333-4444-555555555555"),

@@ -505,8 +505,19 @@ final class HistoryView: NSView {
         // Repeat the volume here: the group heading scrolls away, and "which card was
         // that" is the first thing you want from a row.
         if !s.volumes.isEmpty { line += "  ·  " + s.volumes.joined(separator: ", ") }
-        Text.draw(Text.clip(line, font: nameFont, maxWidth: rect.width - 330),
-                  at: NSPoint(x: 44, y: rect.minY + 9), font: nameFont, color: NSColor.labelColor)
+        let shown = Text.clip(line, font: nameFont, maxWidth: rect.width - 330)
+        Text.draw(shown, at: NSPoint(x: 44, y: rect.minY + 9), font: nameFont,
+                  color: NSColor.labelColor)
+        // What went wrong during this one, in its own colour: a copy that needed the
+        // card asked twice is the first sign of a card to stop trusting.
+        let health = Row.healthNote(retries: s.retries ?? 0, faults: s.faults ?? 0)
+        if !health.isEmpty {
+            let x = 44 + Text.width(shown, font: nameFont) + 12
+            if x + Text.width(health, font: nameFont) < rect.width - 330 {
+                Text.draw(health, at: NSPoint(x: x, y: rect.minY + 9), font: nameFont,
+                          color: Palette.warning)
+            }
+        }
 
         // Did it go as fast as it could have, and if not, what stopped it.
         if let route = HistoryView.routes[s.id] {
