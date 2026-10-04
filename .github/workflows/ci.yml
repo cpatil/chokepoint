@@ -10,6 +10,10 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+        with:
+          # build.sh reads the version off `git describe`, which needs the tags
+          # and the commits between them, not the one-commit default.
+          fetch-depth: 0
 
       - name: Build both architectures
         run: ./build.sh
@@ -31,6 +35,12 @@ jobs:
             | grep -qE 'version 10\.14\.4|minos 10\.14\.4'
           otool -l -arch arm64 build/Chokepoint.app/Contents/MacOS/Chokepoint \
             | grep -A3 LC_BUILD_VERSION | grep -q 'minos 11\.0'
+
+      - name: The bundle carries a real version, not the fallback
+        run: |
+          plutil -p build/Chokepoint.app/Contents/Info.plist \
+            | grep -E 'CFBundle(Short)?Version|Chokepoint(Commit|Built)' | tee /dev/stderr \
+            | grep -qE '"CFBundleShortVersionString" => "1\.[0-9]+\.[0-9]+"'
 
       - name: Publish the checksum of this build
         run: shasum -a 256 build/Chokepoint.app/Contents/MacOS/Chokepoint

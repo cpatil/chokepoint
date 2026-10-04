@@ -8,9 +8,13 @@ private func buildMainMenu(target: AppDelegate) -> NSMenu {
     let appMenuItem = NSMenuItem()
     let appMenu = NSMenu()
     let appName = ProcessInfo.processInfo.processName
-    appMenu.addItem(withTitle: "About \(appName)",
-                    action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
-                    keyEquivalent: "")
+    // Our own About, so the panel can name the commit and date under the version:
+    // the standard one shows only the two plist numbers.
+    let aboutItem = NSMenuItem(title: "About \(appName)",
+                               action: #selector(AppDelegate.showAbout(_:)),
+                               keyEquivalent: "")
+    aboutItem.target = target
+    appMenu.addItem(aboutItem)
     appMenu.addItem(NSMenuItem.separator())
     // The only thing in the app that touches the network, and only from here.
     // Explicit targets: a nil-target menu item is dispatched through the responder

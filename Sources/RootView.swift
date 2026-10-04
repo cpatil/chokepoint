@@ -843,6 +843,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                           backing: .buffered,
                           defer: false)
         window.title = "Chokepoint"
+        // The version sits in the title bar: in the subtitle slot where the system
+        // has one, and in the title itself where it does not, so a screenshot or a
+        // bug report always says which build it was looking at.
+        if #available(macOS 11.0, *) {
+            window.subtitle = AppVersion.display
+        } else {
+            window.title = "Chokepoint \(AppVersion.display)"
+        }
         // Without this, mouseMoved is never delivered and hover magnification never
         // fires, however the tracking areas are configured.
         window.acceptsMouseMovedEvents = true
@@ -991,6 +999,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         Hidden.revealAll()
         refresh()
+    }
+
+    @objc func showAbout(_ sender: Any?) {
+        let credits = NSMutableAttributedString(
+            string: "Build \(AppVersion.full)\n",
+            attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular),
+                         .foregroundColor: NSColor.secondaryLabelColor])
+        credits.append(NSAttributedString(
+            string: "A throughput monitor for storage and network.\nhttps://github.com/cpatil/chokepoint",
+            attributes: [.font: NSFont.systemFont(ofSize: 11),
+                         .foregroundColor: NSColor.secondaryLabelColor]))
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationVersion: AppVersion.display,
+            .version: AppVersion.build,
+            .credits: credits,
+        ])
     }
 
     @objc func showSetup(_ sender: Any?) {

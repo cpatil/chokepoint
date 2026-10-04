@@ -12,6 +12,26 @@ MIN_MACOS="10.14.4"
 BUILD_DIR="build"
 APP_DIR="$BUILD_DIR/$APP_NAME.app"
 
+# The version is read off git rather than typed in, so a build and the commit it
+# came from can never disagree. "v1.0" plus 59 commits becomes 1.0.59; the bundle
+# version is the total commit count, which only ever rises; the commit and its date
+# are kept under keys of our own so About can show where a build really came from.
+# A tarball with no .git, or a checkout too shallow to see the tag, gets a fallback.
+VERSION_SHORT="${CHOKEPOINT_VERSION:-}"
+if [ -z "$VERSION_SHORT" ]; then
+    if described=$(git describe --tags --long --match 'v[0-9]*' 2>/dev/null); then
+        # v1.0-59-g3a4da7a -> 1.0.59
+        VERSION_SHORT=$(echo "$described" | sed -E 's/^v([0-9][0-9.]*)-([0-9]+)-g[0-9a-f]+$/\1.\2/')
+    else
+        VERSION_SHORT="1.0"
+    fi
+fi
+VERSION_BUILD=$(git rev-list --count HEAD 2>/dev/null || echo 0)
+VERSION_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+if [ -n "$(git status --porcelain 2>/dev/null)" ]; then VERSION_COMMIT="$VERSION_COMMIT-dirty"; fi
+VERSION_DATE=$(git log -1 --format=%cs 2>/dev/null || date +%F)
+echo "==> Version $VERSION_SHORT ($VERSION_BUILD) from $VERSION_COMMIT, $VERSION_DATE"
+
 rm -rf "$BUILD_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
@@ -42,8 +62,10 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
     <key>CFBundleDisplayName</key><string>Chokepoint</string>
     <key>CFBundleExecutable</key><string>$APP_NAME</string>
     <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
-    <key>CFBundleVersion</key><string>1.0</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
+    <key>CFBundleVersion</key><string>$VERSION_BUILD</string>
+    <key>CFBundleShortVersionString</key><string>$VERSION_SHORT</string>
+    <key>ChokepointCommit</key><string>$VERSION_COMMIT</string>
+    <key>ChokepointBuilt</key><string>$VERSION_DATE</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleIconFile</key><string>Chokepoint</string>
     <key>LSMinimumSystemVersion</key><string>$MIN_MACOS</string>

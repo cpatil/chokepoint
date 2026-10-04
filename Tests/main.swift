@@ -1880,4 +1880,15 @@ do {
 
 
 print(failures == 0 ? "\n\(checks) checks passed" : "\n\(failures) of \(checks) checks FAILED")
+// MARK: - Version line
+
+check("version line names build, commit and date",
+      AppVersion.describe(short: "1.0.59", build: "99", commit: "3a4da7a", built: "2026-10-04")
+          == "1.0.59 (99) · 3a4da7a · 2026-10-04")
+check("version line omits what the build could not learn",
+      AppVersion.describe(short: "1.0", build: "0", commit: "unknown", built: "") == "1.0 (0)")
+check("a dirty tree is said so, not hidden",
+      AppVersion.describe(short: "1.0.60", build: "100", commit: "ab12cd3-dirty", built: "2026-10-04")
+          .contains("-dirty"))
+
 exit(failures == 0 ? 0 : 1)
