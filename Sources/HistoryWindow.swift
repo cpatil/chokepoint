@@ -240,13 +240,18 @@ final class HistoryView: NSView {
             case .session(let s):
                 // Spoken with both, since "17 min ago" read out of context tells you
                 // nothing about when that was.
-                label = (Fmt.relative(s.started).map { $0 + ", " } ?? "")
-                    + HistoryView.clock.string(from: s.started) + ", "
-                    + (s.volumes.first ?? s.device) + ", " + Fmt.bytes(Double(s.total))
+                // Built up in steps: as one expression this is the kind of chain of
+                // optionals, ternaries and string joins that the Swift 5.10 type
+                // checker on the CI runner gives up on, while a newer one sails through.
+                let when = Fmt.relative(s.started).map { $0 + ", " } ?? ""
+                let clock = HistoryView.clock.string(from: s.started)
+                let subject = s.volumes.first ?? s.device
+                label = when + clock + ", " + subject + ", " + Fmt.bytes(Double(s.total))
                 let verdict = Analysis.verdict(for: s)
-                value = "average \(Fmt.rate(s.averageRate, unit: unit)), "
+                let rates = "average \(Fmt.rate(s.averageRate, unit: unit)), "
                     + "peak \(Fmt.rate(s.peakRate, unit: unit)). "
-                    + (verdict.inferred ? "inferred: " : "") + verdict.summary
+                let prefix = verdict.inferred ? "inferred: " : ""
+                value = rates + prefix + verdict.summary
                 if let route = HistoryView.routes[s.id] {
                     value += " Inferred: " + route.summary
                 }
