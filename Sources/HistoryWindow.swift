@@ -536,10 +536,22 @@ final class HistoryView: NSView {
                   color: verdict.inferred ? Palette.inferred
                        : (verdict.maximised ? NSColor.systemGreen : Palette.secondary))
 
+        // Who did it, beside the session rather than three lines under it: "which
+        // process was that" is the second thing wanted from a row, after which card.
         if !s.processes.isEmpty {
-            Text.draw(Text.clip(s.processes.joined(separator: ", "), font: metaFont, maxWidth: rect.width - 330),
-                      at: NSPoint(x: 44, y: rect.minY + 45), font: metaFont,
-                      color: Palette.faint)
+            let who = s.processes.joined(separator: ", ")
+            var x = 44 + Text.width(shown, font: nameFont) + 12
+            if !health.isEmpty { x += Text.width(health, font: nameFont) + 12 }
+            let room = rect.width - 330 - x
+            if room > 60 {
+                Text.draw(Text.clip(who, font: nameFont, maxWidth: room),
+                          at: NSPoint(x: x, y: rect.minY + 9), font: nameFont,
+                          color: Palette.secondary)
+            } else {
+                Text.draw(Text.clip(who, font: metaFont, maxWidth: rect.width - 330),
+                          at: NSPoint(x: 44, y: rect.minY + 45), font: metaFont,
+                          color: Palette.secondary)
+            }
         }
 
         Text.draw(Fmt.bytes(Double(s.total)), at: NSPoint(x: 0, y: rect.minY + 9),

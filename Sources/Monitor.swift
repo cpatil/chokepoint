@@ -14,6 +14,9 @@ struct Row {
     /// ones it failed outright. Zero is the normal state, and is shown as silence.
     var retries: UInt64 = 0
     var faults: UInt64 = 0
+    /// Who was moving data at each sample of the chart, aligned with downHist and
+    /// upHist, so a peak on the chart can be asked "who did that".
+    var actorsHist: [[Actor]] = []
     var downHist: [Double] = []
     var upHist: [Double] = []
     var note: String = ""
@@ -368,6 +371,7 @@ final class Monitor {
 
     func volumeStateChanged() { volumesDirty = true }
     private var mountRefresh = 0
+    private var histActors: [String: [[Actor]]] = [:]
     private var histDown: [String: [Double]] = [:]
     private var histUp: [String: [Double]] = [:]
     private var friendly: [String: String] = [:]
@@ -796,6 +800,12 @@ final class Monitor {
             if combinedActive(down, up), !row.mountRoots.isEmpty {
                 row.actors = actors(under: row.mountRoots, elapsed: elapsed)
             }
+            // Every tick, busy or idle, so the series stays aligned with the rates.
+            var who = histActors[row.id] ?? []
+            who.append(row.actors)
+            if who.count > Monitor.historyLength { who.removeFirst(who.count - Monitor.historyLength) }
+            histActors[row.id] = who
+            row.actorsHist = who
             // Be explicit about the limitation rather than drawing a flat line that looks like idle.
             row.note = measurable ? "" : "no byte counters for this device class"
             rows.append(row)

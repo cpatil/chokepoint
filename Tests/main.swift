@@ -1860,6 +1860,24 @@ check("health: a counter that went backwards counts as nothing",
 check("health: and an old log with no counter stays unknown, not zero",
       TransferLog.delta(nil, since: 10) == nil)
 
+// ---- scrubbing the chart ------------------------------------------------------
+// The chart anchors the newest sample at its right edge; the scrubber must use the
+// same mapping or the hairline names the wrong second.
+do {
+    let chart = NSRect(x: 100, y: 0, width: 300, height: 40)
+    check("scrub: the right edge is the newest sample",
+          MagnifierView.sample(atX: 400, in: chart, count: 150) == 149)
+    check("scrub: the left edge is the oldest",
+          MagnifierView.sample(atX: 100, in: chart, count: 150) == 0)
+    check("scrub: halfway is the middle sample",
+          MagnifierView.sample(atX: 250, in: chart, count: 151) == 75)
+    check("scrub: outside the chart is nothing",
+          MagnifierView.sample(atX: 99, in: chart, count: 150) == nil
+            && MagnifierView.sample(atX: 401, in: chart, count: 150) == nil)
+    check("scrub: a single sample cannot be scrubbed",
+          MagnifierView.sample(atX: 250, in: chart, count: 1) == nil)
+}
+
 
 print(failures == 0 ? "\n\(checks) checks passed" : "\n\(failures) of \(checks) checks FAILED")
 exit(failures == 0 ? 0 : 1)

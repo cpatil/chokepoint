@@ -48,6 +48,41 @@ final class MagnifierView: NSView {
     /// with the same code that draws them.
     /// Held open by a click rather than following the pointer.
     var isPinned = false
+    /// The sample under the pointer on the chart, when the card is pinned and the
+    /// pointer is over it. Progressive: the chart says what happened, this says who.
+    private var scrubIndex: Int?
+    private var chartRect: NSRect = .zero
+
+    /// Which sample a point on the chart refers to. Newest at the right edge, the
+    /// same anchoring Chart.draw uses, so the two cannot disagree about where a
+    /// sample sits.
+    static func sample(atX x: CGFloat, in chart: NSRect, count: Int) -> Int? {
+        guard count > 1, chart.width > 0, x >= chart.minX, x <= chart.maxX else { return nil }
+        let i = Int(((x - chart.minX) / chart.width * CGFloat(count - 1)).rounded())
+        return min(max(i, 0), count - 1)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        guard isPinned else { return }
+        addTrackingArea(NSTrackingArea(rect: bounds,
+                                       options: [.mouseMoved, .mouseEnteredAndExited,
+                                                 .activeInKeyWindow],
+                                       owner: self, userInfo: nil))
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        guard isPinned, let row = row else { return }
+        let local = convert(event.locationInWindow, from: nil)
+        let next = chartRect.contains(local)
+            ? MagnifierView.sample(atX: local.x, in: chartRect, count: row.downHist.count) : nil
+        if next != scrubIndex { scrubIndex = next; needsDisplay = true }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if scrubIndex != nil { scrubIndex = nil; needsDisplay = true }
+    }
     var onClose: (() -> Void)?
 
     /// Whether the compact note applies - it does not while scrolling, since nothing
@@ -89,6 +124,30 @@ final class MagnifierView: NSView {
     }
 
     private var contentWidth: CGFloat { MagnifierView.width - MagnifierView.pad * 2 }
+
+    /// A hairline at the sample under the pointer, and who was responsible for it.
+    /// Up to three processes by rate; the chart already shows the total.
+    private func drawScrub(row: Row, chart: NSRect) {
+        guard let i = scrubIndex, i < row.downHist.count else { return }
+        let x = chart.minX + chart.width * CGFloat(i) / CGFloat(max(1, row.downHist.count - 1))
+        Palette.secondary.withAlphaComponent(0.8).setFill()
+        NSRect(x: x - 0.5, y: chart.minY, width: 1, height: chart.height).fill()
+        let ago = Double(row.downHist.count - 1 - i) * sampleInterval
+        var text = ago < 1 ? "now" : String(format: "%.0f s ago", ago)
+        let r = (i < row.downHist.count ? row.downHist[i] : 0)
+        let w = (i < row.upHist.count ? row.upHist[i] : 0)
+        text += "  ·  \(row.inShort) \(Fmt.rate(r, unit: unit))  \(row.outShort) \(Fmt.rate(w, unit: unit))"
+        let who = i < row.actorsHist.count ? row.actorsHist[i] : []
+        let named = who.sorted { $0.bytesPerSec > $1.bytesPerSec }.prefix(3)
+            .map { "\($0.display) \(Fmt.rate($0.bytesPerSec, unit: unit))" }
+        text += named.isEmpty ? "  ·  no process seen" : "  ·  " + named.joined(separator: ", ")
+        // Above the chart, pulled left if it would run off the card.
+        let font = NSFont.systemFont(ofSize: 10.5, weight: .medium)
+        let tw = Text.width(text, font: font)
+        let tx = min(max(chart.minX, x - tw / 2), chart.maxX - tw)
+        Text.draw(text, at: NSPoint(x: tx, y: chart.minY - 13), font: font,
+                  color: NSColor.labelColor)
+    }
 
     // The variable-length blocks, in the order they appear.
     /// What belongs under "what is in the reader": the evidence for the card badge.
@@ -959,6 +1018,8 @@ final class MagnifierView: NSView {
         flip.concat()
         Chart.draw(down: row.downHist, up: row.upHist, in: chart, lineWidth: 1.8)
         NSGraphicsContext.restoreGraphicsState()
+        chartRect = chart
+        drawScrub(row: row, chart: chart)
         y += chartHeight + 6
 
         // ---- live rates -----------------------------------------------------
