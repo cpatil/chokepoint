@@ -69,6 +69,10 @@ Open Anyway**.
 
 Runs on macOS 10.14.4 and later.
 
+The version is in the title bar and under **About Chokepoint**, which also names the
+commit the build came from. `1.0.60` means sixty commits after the `v1.0` tag — there is
+no hand-typed version to fall behind.
+
 ## Worth knowing
 
 - **Nothing leaves your Mac.** No network access at all. The speed catalogue ships

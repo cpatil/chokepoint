@@ -252,13 +252,24 @@ interval; the per-tick process scan is the bulk of it, so longer intervals cost 
 
 ```bash
 ./build.sh                 # -> build/Chokepoint.app, universal
-./test.sh                  # 451 checks, run twice
+./test.sh                  # 477 checks, run twice
 ./deploy.sh <ssh-host>     # build and install on another Mac over SSH
 ```
 
 `swiftc` and the Command Line Tools, no Xcode and no project file. The build is
 reproducible: a clean checkout produces a byte-identical executable, so a download can
 be confirmed against the source rather than taken on trust.
+
+**The version is read off git, not typed.** `build.sh` runs `git describe --tags`, so
+the `v1.0` tag plus sixty commits becomes `CFBundleShortVersionString` `1.0.60`, and
+`CFBundleVersion` is the total commit count, which only ever rises. The commit and its
+date go into the plist under `ChokepointCommit` and `ChokepointBuilt`; an uncommitted
+tree stamps `-dirty` on the commit rather than impersonating the last one. The window
+shows the version as its subtitle (in the title before Big Sur), and About shows all
+of it: `1.0.60 (100) · d87296b · 2026-10-04`. The stamp lives in `Info.plist` only, so
+the executable stays byte-identical across commits that do not change the source. A
+tarball with no `.git` gets `1.0 (0)`; CI fetches full history and fails the build if
+the bundle carries that fallback. `CHOKEPOINT_VERSION=…` overrides the short version.
 
 The Intel slice targets **10.14.4** — the release where Swift's ABI-stable runtime
 arrived in the OS, since no Swift libraries are embedded — and the arm64 slice targets
