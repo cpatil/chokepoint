@@ -270,6 +270,32 @@ and 11.7 has been tested.
 chosen separately for light and dark, and one that reads well on one ground can be
 unreadable on the other, so a single pass could only ever check half of what ships.
 
+## Checking the assertions
+
+```bash
+tools/verify.sh                                   # here
+scp build/verify other-mac:/tmp/verify && ssh other-mac /tmp/verify
+```
+
+Everything the app says about a device is one of two kinds, and `tools/verify` checks
+each against a source that owes the app nothing. Measured claims are checked against
+other measurements: the USB vendor, product and link speed against `system_profiler`,
+whether the medium is removable and how big it is against `diskutil`. Inferred claims
+are checked against the thing they infer from: the SD family against the
+specification's decimal capacity bands.
+
+The byte counters get a proof rather than a comparison. The sampler attributes each
+`IOBlockStorageDriver` to exactly one device by stopping its registry walk at nested
+USB devices, so a hub is never credited with its children's traffic. `verify` walks
+the registry itself, with no notion of devices, before and after the sampler runs,
+and requires the sampler's total to sit inside that bracket. Above it, something was
+counted twice; below it, a driver belongs to nothing the app shows.
+
+What it cannot check is the catalogue - the practical ceilings and typical rates the
+comparisons are made against. Those are claims about the world, verified the slow
+way: a device of known class on a known port, driven to saturation, compared with the
+figure the catalogue gives for it.
+
 ## Looking at the interface
 
 The rows and panels are custom-drawn, so their layout is not something a test can
