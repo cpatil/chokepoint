@@ -1042,7 +1042,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 TransferLog.shared.writeNow()
             }
         }
+        // SIGTERM - `kill`, `pkill`, launchd stopping the app - ends a Cocoa app
+        // without applicationWillTerminate, which was harmless while every session was
+        // written as it closed and loses up to half an hour of them now that writes
+        // are batched. Routed through the ordinary quit instead, so it flushes.
+        signal(SIGTERM, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        source.setEventHandler { NSApp.terminate(nil) }
+        source.resume()
+        AppDelegate.termSource = source
     }
+
+    /// Held for the life of the app: a released signal source stops delivering.
+    private static var termSource: DispatchSourceSignal?
 
     @objc private func controlChanged() {
         UserDefaults.standard.set(root.unitControl.selectedSegment, forKey: "RateUnit")
