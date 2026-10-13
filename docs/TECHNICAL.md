@@ -123,12 +123,15 @@ is marked. A volume mounted read-only, like NTFS without a third-party driver, c
 neither a marker nor an index, so it gets no badge and no item. Nor does a volume whose
 root will not take a new file: Time Machine keeps its backup volume root-owned behind an
 access rule that denies everyone adding files, and it searches backups through that
-very index, so it gets no badge and no marker item. It gets a second item instead:
-**Stop Spotlight Indexing … as Administrator**, which runs Spotlight's own
-`mdutil -i off` (or `on`, to undo it) as root behind macOS's password prompt. Chokepoint
-never sees the password. The volume's state is read with `mdutil -s` when the menu
-opens, since no file on the volume records it, and a Time Machine backup gets a warning
-before the prompt: with indexing off, searching inside the backups finds nothing.
+very index, so it gets no badge and no marker item. Nor can it be switched off as root:
+Spotlight accepts `mdutil -i off` on a Time Machine backup, then rebuilds the index at
+once, logging the volume as a backup. The menu says so in a greyed-out line instead of
+offering a switch that cannot hold.
+
+Any other volume that refuses the marker gets **Stop Spotlight Indexing … as
+Administrator**, which runs Spotlight's own `mdutil -i off` (or `on`, to undo it) as
+root behind macOS's password prompt. Chokepoint never sees the password. The state is
+read with `mdutil -s` when the menu opens, since no file on the volume records it.
 
 ## The Cards menu
 

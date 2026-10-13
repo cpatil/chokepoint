@@ -470,9 +470,27 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
         // Volumes that refuse the marker - a Time Machine backup - still have
         // Spotlight's own switch, which needs root. Asked about now, when the menu
         // opens, because mdutil is the only thing that knows their state.
-        if !row.adminRoots.isEmpty {
-            let roots = row.adminRoots
-            let names = roots.map { (ProcessSampler.finderPath($0) as NSString).lastPathComponent }
+        // Time Machine backups are the exception: Spotlight takes `mdutil -i off`,
+        // reports success, and rebuilds the index at once - its log marks the volume
+        // isBackup - because Time Machine searches backups through it. A switch that
+        // cannot hold is not offered; a line saying why is.
+        let backups = row.adminRoots.filter(SpotlightAdmin.isTimeMachine)
+        if !backups.isEmpty {
+            let names = backups.map { (ProcessSampler.finderPath($0) as NSString).lastPathComponent }
+            let note = NSMenuItem(title: "Spotlight Always Indexes Time Machine Backups ("
+                                    + names.joined(separator: ", ") + ")",
+                                  action: nil, keyEquivalent: "")
+            note.isEnabled = false
+            note.toolTip = "macOS rebuilds the index on a Time Machine backup as soon as it "
+                + "is turned off, because searching inside backups depends on it."
+            if !row.indexingWorthReporting { menu.addItem(NSMenuItem.separator()) }
+            menu.addItem(note)
+        }
+        let switchable = row.adminRoots.filter { !SpotlightAdmin.isTimeMachine($0) }
+            .map(ProcessSampler.finderPath)
+        if !switchable.isEmpty {
+            let roots = switchable
+            let names = roots.map { ($0 as NSString).lastPathComponent }
             let states = roots.map { SpotlightAdmin.state(of: $0) }
             if !states.contains(.unknown) {
                 let off = states.allSatisfy { $0 == .off }
@@ -485,7 +503,9 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
                                                                turningOff: !off)
                 item.toolTip = "These volumes will not take the marker file. Spotlight's own "
                     + "switch reaches them, as root; macOS asks for the password."
-                if row.indexingWorthReporting == false { menu.addItem(NSMenuItem.separator()) }
+                if !row.indexingWorthReporting, backups.isEmpty {
+                    menu.addItem(NSMenuItem.separator())
+                }
                 menu.addItem(item)
             }
         }
@@ -596,18 +616,6 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
 
     @objc private func toggleIndexingAsAdmin(_ sender: NSMenuItem) {
         guard let request = sender.representedObject as? AdminSpotlightRequest else { return }
-        // Time Machine searches its backups through this index. Said before the
-        // password prompt, not after, so the trade is chosen rather than discovered.
-        if request.turningOff, request.roots.contains(where: SpotlightAdmin.isTimeMachine) {
-            let warn = NSAlert()
-            warn.messageText = "This is a Time Machine backup"
-            warn.informativeText = "Time Machine uses this index to search inside your "
-                + "backups. With it off, backups still run and restore, but searching "
-                + "them from Time Machine finds nothing."
-            warn.addButton(withTitle: "Stop Indexing")
-            warn.addButton(withTitle: "Cancel")
-            guard warn.runModal() == .alertFirstButtonReturn else { return }
-        }
         let outcome = SpotlightAdmin.run(off: request.turningOff, roots: request.roots,
                                          names: request.names)
         onVolumeChanged?()
