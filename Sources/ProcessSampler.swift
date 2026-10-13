@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import IOKit
 
 /// One process's cumulative disk activity.
 struct ProcSample {
@@ -274,6 +275,32 @@ enum ProcessSampler {
         /// directory, which survives indexing being turned off, this one means what it
         /// says.
         var neverIndex = false
+        /// The EFI system partition: the firmware's FAT boot partition, which every
+        /// GPT disk a Mac boots from has, normally unmounted. When something mounts
+        /// it, it is the disk's first partition, and taking "the first mount" as the
+        /// drive's volume made an APFS SSD read as FAT. Known by its partition type,
+        /// not its name, since the volume label is just a label.
+        var efiSystem = false
+    }
+
+    /// The GPT partition type of an EFI system partition, as IOMedia reports it.
+    static let efiSystemPartitionType = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+
+    static func isEFISystemPartition(content: String) -> Bool {
+        content.uppercased() == efiSystemPartitionType || content == "EFI"
+    }
+
+    /// The IOMedia `Content` of a device node such as /dev/disk0s1.
+    static func partitionContent(device: String) -> String? {
+        guard device.hasPrefix("/dev/") else { return nil }
+        let bsd = String(device.dropFirst("/dev/".count))
+        guard let matching = IOBSDNameMatching(0, 0, bsd) else { return nil }
+        let entry = IOServiceGetMatchingService(0, matching)
+        guard entry != 0 else { return nil }
+        defer { IOObjectRelease(entry) }
+        return IORegistryEntryCreateCFProperty(entry, "Content" as CFString,
+                                               kCFAllocatorDefault, 0)?
+            .takeRetainedValue() as? String
     }
 
     static func volumeTraits() -> [String: VolumeTraits] {
@@ -313,6 +340,10 @@ enum ProcessSampler {
             traits.journalWrites = journaled && !noatime
             traits.spotlight = FileManager.default.fileExists(atPath: on + "/.Spotlight-V100")
             traits.neverIndex = FileManager.default.fileExists(atPath: on + "/.metadata_never_index")
+            // Only FAT volumes can be one, so the registry is asked about those alone.
+            if fs == "msdos", let content = partitionContent(device: from) {
+                traits.efiSystem = isEFISystemPartition(content: content)
+            }
             map[on] = traits
         }
         return map

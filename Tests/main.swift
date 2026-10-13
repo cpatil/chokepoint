@@ -1880,6 +1880,21 @@ do {
 }
 
 
+// MARK: - EFI system partition
+
+check("the EFI system partition is recognised by its GPT type",
+      ProcessSampler.isEFISystemPartition(content: "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"))
+check("an ordinary FAT partition is not taken for it",
+      !ProcessSampler.isEFISystemPartition(content: "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7"))
+do {
+    let mounts = ["/Volumes/EFI", "/", "/System/Volumes/Data"]
+    let efi: (String) -> Bool = { $0 == "/Volumes/EFI" }
+    check("a mounted EFI partition does not speak for the drive's format",
+          Monitor.representativeMount(mounts, isEFI: efi) == "/")
+    check("with only the EFI partition mounted, it is still reported",
+          Monitor.representativeMount(["/Volumes/EFI"], isEFI: efi) == "/Volumes/EFI")
+}
+
 // MARK: - Spotlight item
 
 check("spotlight item names a single volume",

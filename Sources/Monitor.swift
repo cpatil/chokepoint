@@ -215,6 +215,12 @@ extension Row {
 
 /// Samples the system on a timer and turns raw cumulative counters into rates.
 final class Monitor {
+    /// The mount that speaks for the device's format: the first that is not the EFI
+    /// system partition, or the first of all when nothing else is mounted.
+    static func representativeMount(_ mounts: [String], isEFI: (String) -> Bool) -> String? {
+        mounts.first { !isEFI($0) } ?? mounts.first
+    }
+
     enum Mode {
         case network
         case usb
@@ -752,7 +758,12 @@ final class Monitor {
             // processes holding files open there. All partitions, since a copy may
             // be touching any one of them.
             row.allMounts = device.disks.compactMap { mounts[$0] }
-            row.mountRoots = row.allMounts.filter { ProcessSampler.isFinderVolume($0) }
+            // The EFI system partition stays in allMounts - traffic to it is still this
+            // device's traffic - but it is never what the drive is: not its Finder
+            // volume, not its format, not a Spotlight or eject target.
+            let efiMounts = Set(row.allMounts.filter { traits[$0]?.efiSystem ?? false })
+            let isEFI: (String) -> Bool = { efiMounts.contains($0) }
+            row.mountRoots = row.allMounts.filter { ProcessSampler.isFinderVolume($0) && !isEFI($0) }
             // Volume names as shown in Finder, not full paths.
             row.volumes = row.mountRoots.map {
                 (ProcessSampler.finderPath($0) as NSString).lastPathComponent
@@ -768,7 +779,8 @@ final class Monitor {
             // so the table matches the names the user knows; every mount otherwise,
             // which is what lets the boot drive say anything at all about itself -
             // its volumes are not under /Volumes.
-            let detailed = row.mountRoots.isEmpty ? row.allMounts : row.mountRoots
+            let detailed = row.mountRoots.isEmpty ? row.allMounts.filter { !isEFI($0) }
+                                                  : row.mountRoots
             row.volumeDetails = detailed.compactMap { mount in
                 guard let t = traits[mount] else { return nil }
                 var d = Row.VolumeDetail()
@@ -786,7 +798,8 @@ final class Monitor {
                 d.uuid = t.uuid
                 return d
             }
-            if let first = row.allMounts.first, let t = traits[first] {
+            if let first = Monitor.representativeMount(row.allMounts, isEFI: isEFI),
+               let t = traits[first] {
                 row.fsType = t.fsType
                 row.journalWrites = t.journalWrites
                 row.blockSize = t.blockSize
