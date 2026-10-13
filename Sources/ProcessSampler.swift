@@ -281,6 +281,11 @@ enum ProcessSampler {
         /// drive's volume made an APFS SSD read as FAT. Known by its partition type,
         /// not its name, since the volume label is just a label.
         var efiSystem = false
+        /// Whether a file can be added at the volume root - what writing the
+        /// Spotlight marker needs. Not the same as "not read-only": Time Machine
+        /// keeps its backup volume root-owned behind an ACL that denies everyone
+        /// adding files, so a read-write mount still refuses the marker.
+        var rootWritable = true
     }
 
     /// The GPT partition type of an EFI system partition, as IOMedia reports it.
@@ -340,6 +345,10 @@ enum ProcessSampler {
             traits.journalWrites = journaled && !noatime
             traits.spotlight = FileManager.default.fileExists(atPath: on + "/.Spotlight-V100")
             traits.neverIndex = FileManager.default.fileExists(atPath: on + "/.metadata_never_index")
+            // access(2), which weighs ownership, ACLs and a read-only mount alike.
+            // macOS's removable-volume consent is not part of it, so a volume can
+            // pass this and still be refused until the user allows Chokepoint.
+            traits.rootWritable = FileManager.default.isWritableFile(atPath: on)
             // Only FAT volumes can be one, so the registry is asked about those alone.
             if fs == "msdos", let content = partitionContent(device: from) {
                 traits.efiSystem = isEFISystemPartition(content: content)

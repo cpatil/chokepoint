@@ -466,6 +466,29 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
             menu.addItem(NSMenuItem.separator())
             menu.addItem(item)
         }
+
+        // Volumes that refuse the marker - a Time Machine backup - still have
+        // Spotlight's own switch, which needs root. Asked about now, when the menu
+        // opens, because mdutil is the only thing that knows their state.
+        if !row.adminRoots.isEmpty {
+            let roots = row.adminRoots
+            let names = roots.map { (ProcessSampler.finderPath($0) as NSString).lastPathComponent }
+            let states = roots.map { SpotlightAdmin.state(of: $0) }
+            if !states.contains(.unknown) {
+                let off = states.allSatisfy { $0 == .off }
+                let title = TrafficListView.spotlightTitle(volumes: names, already: off)
+                    + " as Administrator\u{2026}"
+                let item = NSMenuItem(title: title, action: #selector(toggleIndexingAsAdmin(_:)),
+                                      keyEquivalent: "")
+                item.target = self
+                item.representedObject = AdminSpotlightRequest(roots: roots, names: names,
+                                                               turningOff: !off)
+                item.toolTip = "These volumes will not take the marker file. Spotlight's own "
+                    + "switch reaches them, as root; macOS asks for the password."
+                if row.indexingWorthReporting == false { menu.addItem(NSMenuItem.separator()) }
+                menu.addItem(item)
+            }
+        }
         return menu
     }
 
@@ -558,6 +581,54 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
         default: list = "\(quoted.count) Volumes"
         }
         return already ? "Let Spotlight Index \(list) Again" : "Stop Spotlight Indexing \(list)"
+    }
+
+    final class AdminSpotlightRequest: NSObject {
+        let roots: [String]
+        let names: [String]
+        let turningOff: Bool
+        init(roots: [String], names: [String], turningOff: Bool) {
+            self.roots = roots
+            self.names = names
+            self.turningOff = turningOff
+        }
+    }
+
+    @objc private func toggleIndexingAsAdmin(_ sender: NSMenuItem) {
+        guard let request = sender.representedObject as? AdminSpotlightRequest else { return }
+        // Time Machine searches its backups through this index. Said before the
+        // password prompt, not after, so the trade is chosen rather than discovered.
+        if request.turningOff, request.roots.contains(where: SpotlightAdmin.isTimeMachine) {
+            let warn = NSAlert()
+            warn.messageText = "This is a Time Machine backup"
+            warn.informativeText = "Time Machine uses this index to search inside your "
+                + "backups. With it off, backups still run and restore, but searching "
+                + "them from Time Machine finds nothing."
+            warn.addButton(withTitle: "Stop Indexing")
+            warn.addButton(withTitle: "Cancel")
+            guard warn.runModal() == .alertFirstButtonReturn else { return }
+        }
+        let outcome = SpotlightAdmin.run(off: request.turningOff, roots: request.roots,
+                                         names: request.names)
+        onVolumeChanged?()
+        guard outcome.ok || !outcome.message.isEmpty else { return }   // cancelled
+        let after = request.roots.map { SpotlightAdmin.state(of: $0) }
+        let wanted: SpotlightAdmin.State = request.turningOff ? .off : .indexing
+        let alert = NSAlert()
+        if outcome.ok, after.allSatisfy({ $0 == wanted }) {
+            alert.messageText = request.turningOff ? "Spotlight indexing stopped"
+                                                   : "Spotlight may index this volume again"
+            alert.informativeText = "Set through Spotlight itself, so it is kept on the "
+                + "volume. Choosing this again reverses it."
+        } else {
+            alert.messageText = "Spotlight did not change"
+            // Its own words: whatever mdutil said is more use than a guess at why.
+            alert.informativeText = outcome.message.isEmpty
+                ? "mdutil ran, but Spotlight still reports the old setting."
+                : outcome.message
+        }
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     @objc private func toggleIndexing(_ sender: NSMenuItem) {

@@ -98,6 +98,12 @@ func card() -> Row {
     r.deviceNode = "/dev/disk5s1"
     r.vendor = "Generic"
     r.deviceID = "05e3:0751"
+    // An import in progress, so the chart and the peaks line under it have
+    // something to show: reads climbing to a peak, a burst of writes near the end.
+    let n = Monitor.historyLength
+    r.downHist = (0..<n).map { i in i < n / 3 ? 0 : 60e6 + 30e6 * sin(Double(i) / 4) }
+    r.upHist = (0..<n).map { i in (n - 20..<n - 12).contains(i) ? 12e6 : 0 }
+    r.down = r.downHist.last ?? 0
     r.volumeDetails = [detail("sd-19", "/dev/disk5s1", "exfat", 131_072, true,
                               "F1860868-2085-3021-B992-E6D84DE42A69")]
     return r

@@ -140,7 +140,12 @@ struct Row {
     /// The Finder volumes a marker can actually be written to. A volume mounted
     /// read-only - NTFS without a third-party driver, a locked card - can carry no
     /// marker and no index, so there is nothing to warn about and nothing to offer.
+    /// Nor can a Time Machine backup, whose root refuses new files; Time Machine
+    /// searches its backups through that index, so it is left as it is.
     var indexableRoots: [String] = []
+    /// Mounted read-write, yet refusing a new file at the root - a Time Machine
+    /// backup. The marker cannot go there; Spotlight's own switch can, as root.
+    var adminRoots: [String] = []
     /// One mounted volume's own facts.
     ///
     /// Per volume, because that is what they are. A disk can carry an exFAT partition
@@ -807,7 +812,15 @@ final class Monitor {
                 row.deviceNode = t.device
                 row.created = t.created
             }
-            row.indexableRoots = row.mountRoots.filter { traits[$0].map { !$0.readOnly } ?? true }
+            // Only volumes the marker can actually be written to. A Time Machine
+            // backup refuses it by design, and offering a switch that cannot work
+            // ended in an alert blaming a permission that was never the problem.
+            row.indexableRoots = row.mountRoots.filter {
+                traits[$0].map { !$0.readOnly && $0.rootWritable } ?? true
+            }
+            row.adminRoots = row.internalMedium ? [] : row.mountRoots.filter {
+                traits[$0].map { !$0.readOnly && !$0.rootWritable } ?? false
+            }
             // Off only when every volume that could be indexed has been told not to
             // be: a drive with one marked partition and one unmarked is still indexed.
             row.indexingDisabled = !row.indexableRoots.isEmpty

@@ -140,13 +140,20 @@ final class MagnifierView: NSView {
         let who = i < row.actorsHist.count ? row.actorsHist[i] : []
         let named = who.sorted { $0.bytesPerSec > $1.bytesPerSec }.prefix(3)
             .map { "\($0.display) \(Fmt.rate($0.bytesPerSec, unit: unit))" }
-        text += named.isEmpty ? "  ·  no process seen" : "  ·  " + named.joined(separator: ", ")
-        // Above the chart, pulled left if it would run off the card.
+        let foot = named.isEmpty ? "no process seen" : named.joined(separator: ", ")
+        // Two lines, one at each end of the hairline: when and how much on the label
+        // line above the chart (cleared while scrubbing), who at its foot (where the
+        // peaks line sits otherwise). One line carrying all three ran over the labels.
+        // Each is centred on the hairline, kept inside the chart, and clipped.
         let font = NSFont.systemFont(ofSize: 10.5, weight: .medium)
-        let tw = Text.width(text, font: font)
-        let tx = min(max(chart.minX, x - tw / 2), chart.maxX - tw)
-        Text.draw(text, at: NSPoint(x: tx, y: chart.minY - 13), font: font,
-                  color: NSColor.labelColor)
+        func place(_ string: String, y: CGFloat, color: NSColor) {
+            let clipped = Text.clip(string, font: font, maxWidth: chart.width)
+            let tw = Text.width(clipped, font: font)
+            let tx = min(max(chart.minX, x - tw / 2), chart.maxX - tw)
+            Text.draw(clipped, at: NSPoint(x: tx, y: y), font: font, color: color)
+        }
+        place(text, y: chart.minY - 12, color: NSColor.labelColor)
+        place(foot, y: chart.maxY + 3, color: Palette.secondary)
     }
 
     // The variable-length blocks, in the order they appear.
@@ -612,8 +619,28 @@ final class MagnifierView: NSView {
     ///
     /// Measured here so it can be given a panel like the other two, and so the card
     /// reads as three grouped blocks rather than two boxes and a loose tail.
+    /// The line under the chart: the window's peaks, or the processes at the
+    /// pointer's foot while scrubbing.
+    static let footLine: CGFloat = 13
+
+    /// "peak R 7.65 MB/s 77 s ago  ·  W 2.10 MB/s 12 s ago" over what the chart shows.
+    /// Each direction's own peak, because the chart's full scale is the larger of
+    /// the two and says nothing about the other. Empty while nothing has moved.
+    static func peakLine(down: [Double], up: [Double], interval: Double,
+                         inShort: String, outShort: String,
+                         rate: (Double) -> String) -> String {
+        func part(_ name: String, _ hist: [Double]) -> String? {
+            guard let (i, v) = hist.enumerated().max(by: { $0.element < $1.element })
+                    .map({ ($0.offset, $0.element) }), v > 0 else { return nil }
+            let ago = Double(hist.count - 1 - i) * interval
+            return "\(name) \(rate(v)) " + (ago < 1 ? "now" : String(format: "%.0f s ago", ago))
+        }
+        let parts = [part(inShort, down), part(outShort, up)].compactMap { $0 }
+        return parts.isEmpty ? "" : "peak " + parts.joined(separator: "  ·  ")
+    }
+
     func livePanelHeight(_ row: Row) -> CGFloat {
-        var h: CGFloat = 6 + 11 + chartHeight + 6 + 30
+        var h: CGFloat = 6 + 11 + chartHeight + 4 + MagnifierView.footLine + 6 + 30
         if let gauge = usage(row) { h += gaugeLabelWraps(gauge) ? 46 : 28 }
         let statCount = stats(for: row).count
         if statCount > 0 {
@@ -1000,12 +1027,16 @@ final class MagnifierView: NSView {
         y += 6
         let scale = Chart.peak(down: row.downHist, up: row.upHist)
         let span = Double(Monitor.historyLength) * sampleInterval
-        Text.draw(span >= 120 ? String(format: "last %.0f min", span / 60)
-                              : String(format: "last %.0f s", span),
-                  at: NSPoint(x: left, y: y), font: tickFont, color: Palette.faint)
-        Text.draw(Fmt.rate(scale, unit: unit) + " full scale",
-                  at: NSPoint(x: 0, y: y), font: tickFont,
-                  color: Palette.secondary, alignRight: left + width)
+        // The scrub readout takes this line while the pointer is on the chart. Drawn
+        // over these labels instead, the two ran into each other.
+        if scrubIndex == nil {
+            Text.draw(span >= 120 ? String(format: "last %.0f min", span / 60)
+                                  : String(format: "last %.0f s", span),
+                      at: NSPoint(x: left, y: y), font: tickFont, color: Palette.faint)
+            Text.draw(Fmt.rate(scale, unit: unit) + " full scale",
+                      at: NSPoint(x: 0, y: y), font: tickFont,
+                      color: Palette.secondary, alignRight: left + width)
+        }
         y += 11
         Palette.faint.setFill()
         NSRect(x: left, y: y, width: width, height: 1).fill()
@@ -1020,7 +1051,16 @@ final class MagnifierView: NSView {
         NSGraphicsContext.restoreGraphicsState()
         chartRect = chart
         drawScrub(row: row, chart: chart)
-        y += chartHeight + 6
+        y += chartHeight + 4
+        if scrubIndex == nil {
+            let peaks = MagnifierView.peakLine(down: row.downHist, up: row.upHist,
+                                               interval: sampleInterval,
+                                               inShort: row.inShort, outShort: row.outShort,
+                                               rate: { Fmt.rate($0, unit: self.unit) })
+            Text.draw(Text.clip(peaks, font: tickFont, maxWidth: width),
+                      at: NSPoint(x: left, y: y), font: tickFont, color: Palette.secondary)
+        }
+        y += MagnifierView.footLine + 6
 
         // ---- live rates -----------------------------------------------------
         let mid = left + width / 2

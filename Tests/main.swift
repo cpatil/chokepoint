@@ -1895,6 +1895,37 @@ do {
           Monitor.representativeMount(["/Volumes/EFI"], isEFI: efi) == "/Volumes/EFI")
 }
 
+// MARK: - Peaks under the chart
+
+do {
+    let rate: (Double) -> String = { String(format: "%.0f", $0) }
+    check("peak line names each direction's own peak and when",
+          MagnifierView.peakLine(down: [1, 9, 2, 0], up: [0, 0, 0, 5], interval: 1,
+                                 inShort: "R", outShort: "W", rate: rate)
+              == "peak R 9 2 s ago  ·  W 5 now")
+    check("peak line leaves out a direction that never moved",
+          MagnifierView.peakLine(down: [0, 3], up: [0, 0], interval: 2,
+                                 inShort: "R", outShort: "W", rate: rate)
+              == "peak R 3 now")
+    check("peak line is empty when nothing moved",
+          MagnifierView.peakLine(down: [0, 0], up: [0, 0], interval: 1,
+                                 inShort: "R", outShort: "W", rate: rate).isEmpty)
+}
+
+// MARK: - Spotlight as administrator
+
+check("mdutil enabled is read as indexing",
+      SpotlightAdmin.parse("/Volumes/ruold:\n\tIndexing enabled. \n") == .indexing)
+check("mdutil disabled is read as off",
+      SpotlightAdmin.parse("/Volumes/media:\n\tIndexing and searching disabled.\n") == .off)
+check("an mdutil error is not mistaken for a state",
+      SpotlightAdmin.parse("Error: unknown volume") == .unknown)
+check("each volume is one quoted argument",
+      SpotlightAdmin.command(off: true, roots: ["/Volumes/nam DDLJ", "/Volumes/it's"])
+          == "/usr/bin/mdutil -i off '/Volumes/nam DDLJ' && /usr/bin/mdutil -i off '/Volumes/it'\\''s'")
+check("quotes and backslashes survive the AppleScript literal",
+      SpotlightAdmin.appleScriptLiteral("a \"b\" \\c") == "\"a \\\"b\\\" \\\\c\"")
+
 // MARK: - Spotlight item
 
 check("spotlight item names a single volume",

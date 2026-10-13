@@ -120,7 +120,15 @@ the wrong test: a USB hard disk reports itself as fixed, so for a while those dr
 were warned about and offered no way to act on it. A drive with several partitions
 names each one in the item and marks them all, and it only reads as off when every one
 is marked. A volume mounted read-only, like NTFS without a third-party driver, can hold
-neither a marker nor an index, so it gets no badge and no item.
+neither a marker nor an index, so it gets no badge and no item. Nor does a volume whose
+root will not take a new file: Time Machine keeps its backup volume root-owned behind an
+access rule that denies everyone adding files, and it searches backups through that
+very index, so it gets no badge and no marker item. It gets a second item instead:
+**Stop Spotlight Indexing … as Administrator**, which runs Spotlight's own
+`mdutil -i off` (or `on`, to undo it) as root behind macOS's password prompt. Chokepoint
+never sees the password. The volume's state is read with `mdutil -s` when the menu
+opens, since no file on the volume records it, and a Time Machine backup gets a warning
+before the prompt: with indexing off, searching inside the backups finds nothing.
 
 ## The Cards menu
 
