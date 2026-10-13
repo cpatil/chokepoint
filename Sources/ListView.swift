@@ -445,19 +445,24 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(hideItem)
 
-        if row.removable, !row.mountRoots.isEmpty {
-            let already = row.mountRoots.allSatisfy {
+        // Offered wherever the row warns "Spotlight not blocked", and on nothing
+        // else: any external volume that can be written to. It used to require
+        // removable media, and a USB hard disk reports itself as fixed, so the row
+        // warned about something its own menu would not fix.
+        if row.indexingWorthReporting {
+            let roots = row.indexableRoots
+            let already = roots.allSatisfy {
                 FileManager.default.fileExists(atPath: $0 + "/.metadata_never_index")
             }
-            let name = row.volumes.first ?? "this card"
+            let names = roots.map { (ProcessSampler.finderPath($0) as NSString).lastPathComponent }
             // Both directions, from the same menu. Writing a marker onto someone's
             // card and giving them no way to take it off would leave them editing a
             // hidden file by hand to undo a menu click.
-            let item = NSMenuItem(title: already ? "Let Spotlight Index “\(name)” Again"
-                                                 : "Stop Spotlight Indexing “\(name)”",
+            let item = NSMenuItem(title: TrafficListView.spotlightTitle(volumes: names,
+                                                                        already: already),
                                   action: #selector(toggleIndexing(_:)), keyEquivalent: "")
             item.target = self
-            item.representedObject = row.mountRoots as NSArray
+            item.representedObject = roots as NSArray
             menu.addItem(NSMenuItem.separator())
             menu.addItem(item)
         }
@@ -539,6 +544,20 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
         guard let pair = sender.representedObject as? [String], pair.count == 2 else { return }
         Hidden.set(id: pair[0], name: pair[1], hidden: !Hidden.isHidden(id: pair[0]))
         onVolumeChanged?()
+    }
+
+    /// Names every volume the click will touch, so a drive with two partitions
+    /// does not change both under a title that mentions one.
+    static func spotlightTitle(volumes: [String], already: Bool) -> String {
+        let quoted = volumes.map { "\u{201C}\($0)\u{201D}" }
+        let list: String
+        switch quoted.count {
+        case 0: list = "This Volume"
+        case 1: list = quoted[0]
+        case 2: list = quoted[0] + " and " + quoted[1]
+        default: list = "\(quoted.count) Volumes"
+        }
+        return already ? "Let Spotlight Index \(list) Again" : "Stop Spotlight Indexing \(list)"
     }
 
     @objc private func toggleIndexing(_ sender: NSMenuItem) {

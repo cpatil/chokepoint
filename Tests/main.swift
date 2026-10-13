@@ -1005,6 +1005,7 @@ do {
         row.section = section
         row.internalMedium = internalMedium
         row.mountRoots = mounts
+        row.indexableRoots = mounts   // all writable; the read-only case is checked below
         return row
     }
     check("spotlight: reported for a card in a reader",
@@ -1879,7 +1880,28 @@ do {
 }
 
 
-print(failures == 0 ? "\n\(checks) checks passed" : "\n\(failures) of \(checks) checks FAILED")
+// MARK: - Spotlight item
+
+check("spotlight item names a single volume",
+      TrafficListView.spotlightTitle(volumes: ["1TB"], already: false)
+          == "Stop Spotlight Indexing \u{201C}1TB\u{201D}")
+check("spotlight item names both volumes of a two-partition drive",
+      TrafficListView.spotlightTitle(volumes: ["Other backups", "1TB"], already: true)
+          == "Let Spotlight Index \u{201C}Other backups\u{201D} and \u{201C}1TB\u{201D} Again")
+check("spotlight item counts beyond two",
+      TrafficListView.spotlightTitle(volumes: ["a", "b", "c"], already: false)
+          == "Stop Spotlight Indexing 3 Volumes")
+do {
+    var fixedDisk = Row(id: "usb:x", title: "HGST", subtitle: "", badge: "")
+    fixedDisk.section = "USB"
+    fixedDisk.removable = false
+    fixedDisk.mountRoots = ["/Volumes/1TB"]
+    fixedDisk.indexableRoots = ["/Volumes/1TB"]
+    check("a fixed external disk is offered the Spotlight item", fixedDisk.indexingWorthReporting)
+    fixedDisk.indexableRoots = []
+    check("a read-only volume is not warned about", !fixedDisk.indexingWorthReporting)
+}
+
 // MARK: - Version line
 
 check("version line names build, commit and date",
@@ -1891,4 +1913,5 @@ check("a dirty tree is said so, not hidden",
       AppVersion.describe(short: "1.0.60", build: "100", commit: "ab12cd3-dirty", built: "2026-10-04")
           .contains("-dirty"))
 
+print(failures == 0 ? "\n\(checks) checks passed" : "\n\(failures) of \(checks) checks FAILED")
 exit(failures == 0 ? 0 : 1)

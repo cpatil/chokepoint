@@ -135,8 +135,12 @@ struct Row {
     /// import from gains nothing from being indexed and pays for it in wear and
     /// contention.
     var indexingWorthReporting: Bool {
-        section != "Network" && !internalMedium && !mountRoots.isEmpty
+        section != "Network" && !internalMedium && !indexableRoots.isEmpty
     }
+    /// The Finder volumes a marker can actually be written to. A volume mounted
+    /// read-only - NTFS without a third-party driver, a locked card - can carry no
+    /// marker and no index, so there is nothing to warn about and nothing to offer.
+    var indexableRoots: [String] = []
     /// One mounted volume's own facts.
     ///
     /// Per volume, because that is what they are. A disk can carry an exFAT partition
@@ -790,9 +794,13 @@ final class Monitor {
                 row.deviceNode = t.device
                 row.created = t.created
             }
+            row.indexableRoots = row.mountRoots.filter { traits[$0].map { !$0.readOnly } ?? true }
+            // Off only when every volume that could be indexed has been told not to
+            // be: a drive with one marked partition and one unmarked is still indexed.
+            row.indexingDisabled = !row.indexableRoots.isEmpty
+                && row.indexableRoots.allSatisfy { traits[$0]?.neverIndex ?? false }
             if let first = row.mountRoots.first, let t = traits[first] {
                 row.spotlight = t.spotlight
-                row.indexingDisabled = t.neverIndex
                 // From the traits map rather than a fresh lookup: that map is rebuilt
                 // every fifth sample at most, and this ran on every one of them.
                 row.volumeID = t.uuid

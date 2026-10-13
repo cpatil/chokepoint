@@ -114,6 +114,14 @@ being disabled and would keep the light red for no reason.
 Internal drives are left out of this. Indexing the boot disk is what makes the machine
 searchable; flagging it would be advice nobody should take.
 
+The right-click item is offered on exactly the rows that carry the badge: any external
+volume that can be written to, card or hard disk. Whether the medium is *removable* is
+the wrong test: a USB hard disk reports itself as fixed, so for a while those drives
+were warned about and offered no way to act on it. A drive with several partitions
+names each one in the item and marks them all, and it only reads as off when every one
+is marked. A volume mounted read-only, like NTFS without a third-party driver, can hold
+neither a marker nor an index, so it gets no badge and no item.
+
 ## The Cards menu
 
 Two things Chokepoint can do by itself when a memory card is inserted, both off until you
