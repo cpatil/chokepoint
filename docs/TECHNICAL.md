@@ -185,6 +185,15 @@ entries, unencrypted, holding device and volume names, process names, timestamps
 counts and rates. Nothing leaves the machine, but it is worth knowing the file exists
 before sharing diagnostics. Right-click the log to clear a device or the lot.
 
+**Chokepoint keeps its own writes off the disk it is watching.** The session log and the
+record of each device's best both live on the boot drive and are rewritten whole, so
+saving on every closed session put a 60-150 KB write on the internal SSD each time a
+copy finished. Changes are now held in memory and written at most every 30 minutes, and
+always when the app quits, the Mac sleeps, or it shuts down. Only the app reads these
+files, and it reads them from memory. A crash loses at most the sessions closed since the
+last write. Clearing or restoring the log, which you do on purpose, is written at once.
+Measured over two minutes with `proc_pid_rusage`, the running app wrote nothing at all.
+
 ## First run
 
 A setup window appears the first time, and is available afterwards from Help ▸ Setup

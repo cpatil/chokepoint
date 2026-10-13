@@ -134,6 +134,13 @@ struct Row {
     /// searchable, so flagging it red would be advice nobody should take; a card you
     /// import from gains nothing from being indexed and pays for it in wear and
     /// contention.
+    /// Offered Eject: any external device with a Finder volume - a hard disk as much
+    /// as a card. It used to require removable media, which a USB hard disk does not
+    /// report: "removable" is about the medium leaving the drive, not the drive
+    /// leaving the Mac.
+    var ejectable: Bool {
+        section != "Network" && !internalMedium && !mountRoots.isEmpty
+    }
     var indexingWorthReporting: Bool {
         section != "Network" && !internalMedium && !indexableRoots.isEmpty
     }

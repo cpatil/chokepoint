@@ -142,13 +142,57 @@ final class TransferLog {
                 seeded = true
             }
         }
+        // Only when loading changed something. It used to be written on every launch
+        // as well, which changed nothing but the file's date.
         if seeded || records.contains(where: { !$0.key.contains("|") }) { saveRecords() }
-        saveRecords()
     }
 
     private func saveRecords() {
-        guard let data = try? JSONEncoder().encode(records) else { return }
-        try? data.write(to: recordsURL, options: .atomic)
+        recordsDirty = true
+    }
+
+    // ---- writing, batched ------------------------------------------------------
+    //
+    // Both files are rewritten whole, and the boot SSD is where they live. Writing on
+    // every closed session put a 60-150 KB rewrite on the internal drive each time a
+    // copy finished - small, but a monitor should be the quietest thing on the disk
+    // it watches. Nothing reads these files while the app runs; the window reads the
+    // log from memory. So changes are held and written at most every half hour, and
+    // whenever the app quits, the Mac sleeps or it shuts down. A crash loses at most
+    // the sessions closed since the last write. Anything the user does on purpose -
+    // clearing, restoring - is written at once.
+
+    /// How long a change may wait in memory before it is written.
+    static let writeInterval: TimeInterval = 30 * 60
+
+    private var historyDirty = false
+    private var recordsDirty = false
+    private var lastWrite = Date()
+
+    /// Pure, for the checks: whether held changes are due to be written.
+    static func writeDue(dirty: Bool, lastWrite: Date, now: Date,
+                         interval: TimeInterval = writeInterval) -> Bool {
+        dirty && now.timeIntervalSince(lastWrite) >= interval
+    }
+
+    /// Writes whatever is held, now. Called on quit, sleep and power-off.
+    func writeNow() {
+        defer { lastWrite = Date() }
+        guard persist else { historyDirty = false; recordsDirty = false; return }
+        if historyDirty, let data = try? JSONEncoder().encode(sessions) {
+            try? data.write(to: fileURL, options: .atomic)
+            historyDirty = false
+        }
+        if recordsDirty, let data = try? JSONEncoder().encode(records) {
+            try? data.write(to: recordsURL, options: .atomic)
+            recordsDirty = false
+        }
+    }
+
+    private func writeIfDue(now: Date) {
+        if TransferLog.writeDue(dirty: historyDirty || recordsDirty, lastWrite: lastWrite, now: now) {
+            writeNow()
+        }
     }
 
     /// How a record is filed: the same scope the log groups by.
@@ -242,11 +286,12 @@ final class TransferLog {
         sessions = parsed
     }
 
-    private func save() {
-        // A log made for the checks never touches the real history file.
-        guard persist else { return }
-        guard let data = try? JSONEncoder().encode(sessions) else { return }
-        try? data.write(to: fileURL, options: .atomic)
+    /// Marks the log changed; it is written with the next batch. `immediately` is for
+    /// changes the user made on purpose, which should be on disk when they look.
+    /// A log made for the checks never touches the real history file.
+    private func save(immediately: Bool = false) {
+        historyDirty = true
+        if immediately { writeNow() }
     }
 
     /// Folds one sample of every row into the log, and closes anything that has gone.
@@ -260,11 +305,14 @@ final class TransferLog {
         for key in open.keys where !present.contains(key) {
             if let session = open[key] { finish(key: key, session: session) }
         }
+        writeIfDue(now: now)
     }
 
-    /// Writes out anything still running, so quitting mid-copy does not lose it.
+    /// Closes anything still running and writes everything held, so quitting
+    /// mid-copy loses nothing.
     func flush() {
         for (key, session) in open { finish(key: key, session: session) }
+        writeNow()
     }
 
     /// Folds one sample of one row into the log.
@@ -436,20 +484,20 @@ final class TransferLog {
         sessions.sort { $0.started > $1.started }
         sessions = TransferLog.trim(sessions)
         try? FileManager.default.removeItem(at: recycleURL)
-        save()
+        save(immediately: true)
         return returning.count
     }
 
     func clear() {
         setAside(sessions)
         sessions.removeAll()
-        save()
+        save(immediately: true)
     }
 
     /// Forgets one device's history without touching anything else.
     func clear(device: String, volumes: [String]) {
         setAside(sessions.filter { $0.device == device && $0.volumes == volumes })
         sessions.removeAll { $0.device == device && $0.volumes == volumes }
-        save()
+        save(immediately: true)
     }
 }

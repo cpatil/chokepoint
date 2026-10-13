@@ -837,6 +837,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // then Bottleneck, and a user's log, settings and watcher may still be filed
         // under either of those older names.
         Migration.run()
+        writeLogBeforeSleepOrShutdown()
 
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 980, height: 660),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -1029,6 +1030,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         // Persist any transfer still in progress rather than dropping it.
         TransferLog.shared.flush()
+    }
+
+    /// The log is written in batches, so whatever is held goes to disk before the Mac
+    /// sleeps or shuts down - the moments a held change is most likely to be lost.
+    /// Open sessions stay open across sleep: the copy may well resume on wake.
+    private func writeLogBeforeSleepOrShutdown() {
+        let center = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.willSleepNotification, NSWorkspace.willPowerOffNotification] {
+            center.addObserver(forName: name, object: nil, queue: .main) { _ in
+                TransferLog.shared.writeNow()
+            }
+        }
     }
 
     @objc private func controlChanged() {

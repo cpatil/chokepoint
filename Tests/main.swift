@@ -1912,6 +1912,18 @@ do {
                                  inShort: "R", outShort: "W", rate: rate).isEmpty)
 }
 
+// MARK: - Batched log writes
+
+do {
+    let t0 = Date(timeIntervalSince1970: 1_000_000)
+    check("a held change waits inside the interval",
+          !TransferLog.writeDue(dirty: true, lastWrite: t0, now: t0 + 60))
+    check("a held change is written once the interval passes",
+          TransferLog.writeDue(dirty: true, lastWrite: t0, now: t0 + TransferLog.writeInterval))
+    check("nothing held, nothing written, however long it has been",
+          !TransferLog.writeDue(dirty: false, lastWrite: t0, now: t0 + 86_400))
+}
+
 // MARK: - Spotlight as administrator
 
 check("mdutil enabled is read as indexing",
@@ -1944,8 +1956,14 @@ do {
     fixedDisk.mountRoots = ["/Volumes/1TB"]
     fixedDisk.indexableRoots = ["/Volumes/1TB"]
     check("a fixed external disk is offered the Spotlight item", fixedDisk.indexingWorthReporting)
+    check("a fixed external disk is offered Eject", fixedDisk.ejectable)
     fixedDisk.indexableRoots = []
     check("a read-only volume is not warned about", !fixedDisk.indexingWorthReporting)
+    check("a read-only external disk can still be ejected", fixedDisk.ejectable)
+    var boot = fixedDisk
+    boot.section = "Internal"
+    boot.internalMedium = true
+    check("the internal drive is never offered Eject", !boot.ejectable)
 }
 
 // MARK: - Version line

@@ -420,7 +420,7 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
         // Ejecting, for the thing this app is mostly pointed at: a card you are about
         // to pull out. Offered where the card is, rather than sending you to Finder to
         // find the same volume under a different name.
-        if row.removable, !row.mountRoots.isEmpty {
+        if row.ejectable {
             let eject = NSMenuItem(title: "Eject \u{201C}\(row.headline)\u{201D}",
                                    action: #selector(ejectVolumes(_:)), keyEquivalent: "")
             eject.target = self
