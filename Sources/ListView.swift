@@ -427,7 +427,7 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
             eject.representedObject = EjectRequest(name: row.headline,
                                                    mounts: row.mountRoots,
                                                    active: row.active,
-                                                   holders: row.actors.map { $0.display })
+                                                   holders: row.actors.filter { !$0.inferred }.map { $0.display })
             menu.addItem(eject)
         }
 
@@ -1264,7 +1264,7 @@ final class TrafficListView: NSView, NSViewToolTipOwner {
         // both of which the hover card shows in full.
         var footer = ""
         if verbose, !row.actors.isEmpty {
-            footer = row.actors.map { "\($0.display) \(Fmt.rate($0.bytesPerSec, unit: unit))" }
+            footer = row.actors.map { actor in actor.label(rate: { Fmt.rate($0, unit: self.unit) }) }
                 .joined(separator: "   ")
         }
         if verbose, !row.appleName.isEmpty {

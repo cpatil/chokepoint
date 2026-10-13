@@ -1912,6 +1912,27 @@ do {
                                  inShort: "R", outShort: "W", rate: rate).isEmpty)
 }
 
+// MARK: - Traffic no visible process accounts for
+
+check("shared paths are read from sharing -l",
+      SharingWatch.parseShares("name:\t\tmedia\npath:\t\t/Volumes/media\n\tsmb:\t{\npath:\t\t/Volumes/nam DDLJ\n")
+          == ["/Volumes/media", "/Volumes/nam DDLJ"])
+check("SMB clients are counted once per host, inbound only",
+      SharingWatch.parseSMBClients("""
+      tcp4       0      0  100.117.232.29.60294   192.168.4.38.445       ESTABLISHED
+      tcp4       0      0  192.168.4.37.445       192.168.4.41.42592     ESTABLISHED
+      tcp4       0   8836  192.168.4.37.445       192.168.4.36.62430     ESTABLISHED
+      tcp4       0      0  192.168.4.37.445       192.168.4.36.62431     ESTABLISHED
+      tcp4       0      0  192.168.4.37.445       192.168.4.50.1000      TIME_WAIT
+      """) == 2)
+check("an inferred actor is marked and carries no invented rate",
+      Actor(name: "file sharing", pid: 0, bytesPerSec: 0, inferred: true)
+          .label(rate: { _ in "X" }) == "\u{2248} file sharing")
+check("a process holding a file open says so instead of showing 0 B/s",
+      Actor(name: "cp", pid: 1, bytesPerSec: 0).label(rate: { _ in "X" }) == "cp (file open)")
+check("a measured process keeps its rate",
+      Actor(name: "cp", pid: 1, bytesPerSec: 5).label(rate: { _ in "5 B/s" }) == "cp 5 B/s")
+
 // MARK: - Batched log writes
 
 do {

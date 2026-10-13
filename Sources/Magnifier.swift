@@ -139,7 +139,7 @@ final class MagnifierView: NSView {
         text += "  ·  \(row.inShort) \(Fmt.rate(r, unit: unit))  \(row.outShort) \(Fmt.rate(w, unit: unit))"
         let who = i < row.actorsHist.count ? row.actorsHist[i] : []
         let named = who.sorted { $0.bytesPerSec > $1.bytesPerSec }.prefix(3)
-            .map { "\($0.display) \(Fmt.rate($0.bytesPerSec, unit: unit))" }
+            .map { actor in actor.label(rate: { Fmt.rate($0, unit: self.unit) }) }
         let foot = named.isEmpty ? "no process seen" : named.joined(separator: ", ")
         // Two lines, one at each end of the hairline: when and how much on the label
         // line above the chart (cleared while scrubbing), who at its foot (where the
@@ -249,12 +249,21 @@ final class MagnifierView: NSView {
             // Not "the processes causing this traffic". proc_pid_rusage reports a
             // process's disk I/O as a whole; the open-descriptor check says the
             // process is working on this volume, not that every byte went here.
-            out.append(("processes with disk activity and an open file here:",
-                        smallFont, Palette.faint))
+            let heading: String
+            if row.actors.allSatisfy({ $0.inferred }) {
+                heading = "no process Chokepoint can see accounts for this; most likely:"
+            } else if row.actors.allSatisfy({ $0.bytesPerSec == 0 }) {
+                heading = "processes with a file open here (their reads are done for them):"
+            } else {
+                heading = "processes with disk activity and an open file here:"
+            }
+            out.append((heading, smallFont, Palette.faint))
         }
         for actor in row.actors {
-            out.append((actor.display + "   " + Fmt.rate(actor.bytesPerSec, unit: unit),
-                        smallFont, NSColor.labelColor))
+            out.append((actor.bytesPerSec > 0
+                            ? actor.display + "   " + Fmt.rate(actor.bytesPerSec, unit: unit)
+                            : actor.label(rate: { Fmt.rate($0, unit: self.unit) }),
+                        smallFont, actor.inferred ? Palette.inferred : NSColor.labelColor))
         }
         // What the bar was measured against, when it was not measured against a link.
         // The percentage on its own says nothing about how good the yardstick is.

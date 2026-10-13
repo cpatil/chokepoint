@@ -429,6 +429,7 @@ final class Monitor {
     }
 
     @objc private func tick() {
+        SharingWatch.shared.refreshIfStale()
         let now = CFAbsoluteTimeGetCurrent()
         let elapsed = now - lastSample
         guard elapsed > 0.05 else { return }
@@ -503,6 +504,46 @@ final class Monitor {
     /// (interface reconfigured, device replugged), so report no traffic rather than a huge spike.
     private static func delta(_ current: UInt64, _ previous: UInt64) -> Double {
         current >= previous ? Double(current - previous) : 0
+    }
+
+    /// Who is probably behind traffic that no visible process accounts for. In order
+    /// of evidence: processes holding files open on an FSKit volume (they asked; the
+    /// FSKit service did the reading); file sharing, when the volume is shared and
+    /// machines are connected; otherwise a process Chokepoint cannot see.
+    private var fskitHolders: [String: (at: Date, actors: [Actor])] = [:]
+
+    private func unseenActors(row: Row, fskit: Bool) -> [Actor] {
+        if fskit {
+            let now = Date()
+            // A descriptor scan of every process: worth it only while the question is
+            // open, and at most every five seconds.
+            if let cached = fskitHolders[row.id], now.timeIntervalSince(cached.at) < 5 {
+                if !cached.actors.isEmpty { return cached.actors }
+            } else {
+                var holders: [Actor] = []
+                for (pid, info) in procs where pid != getpid() {
+                    if row.mountRoots.contains(where: { ProcessSampler.hasOpenFile(pid: pid, under: $0) }) {
+                        holders.append(Actor(name: info.name, pid: pid, bytesPerSec: 0,
+                                             owner: Monitor.processOwners[info.name] ?? ""))
+                    }
+                    if holders.count == 3 { break }
+                }
+                fskitHolders[row.id] = (now, holders)
+                if !holders.isEmpty { return holders }
+            }
+        }
+        let sharing = SharingWatch.shared
+        guard sharing.loaded else { return [] }
+        let shared = row.mountRoots.contains { sharing.sharedPaths.contains(ProcessSampler.finderPath($0)) }
+        if shared, sharing.smbClients > 0 {
+            return [Actor(name: "file sharing", pid: 0, bytesPerSec: 0, inferred: true)]
+        }
+        if fskit {
+            return [Actor(name: "FSKit service", pid: 0, bytesPerSec: 0,
+                          owner: "for a process Chokepoint cannot see", inferred: true)]
+        }
+        return [Actor(name: "a system process", pid: 0, bytesPerSec: 0,
+                      owner: "not visible without root", inferred: true)]
     }
 
     private func combinedActive(_ down: Double, _ up: Double) -> Bool {
@@ -840,6 +881,10 @@ final class Monitor {
             }
             if combinedActive(down, up), !row.mountRoots.isEmpty {
                 row.actors = actors(under: row.mountRoots, elapsed: elapsed)
+                if row.actors.isEmpty {
+                    row.actors = unseenActors(row: row,
+                                              fskit: row.mountRoots.contains { traits[$0]?.fskit ?? false })
+                }
             }
             // Every tick, busy or idle, so the series stays aligned with the rates.
             var who = histActors[row.id] ?? []

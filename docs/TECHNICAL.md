@@ -101,6 +101,22 @@ so a plateau near a known ceiling is reported as consistent with that class, not
 proof of it. The reader, the destination, the filesystem and the workload are all
 alternative explanations Chokepoint cannot rule out.
 
+### When no process can be seen
+
+The attribution above reads processes running as you. Three common readers are not:
+
+- **File sharing.** The SMB server runs as root. When a busy volume is one this Mac
+  shares (from `sharing -l`) and other machines hold connections to its port 445 (from
+  `netstat`), the reader is named as `≈ file sharing`.
+- **FSKit volumes.** From macOS 15, FAT, exFAT and NTFS run in user space: a root
+  service does the disk I/O on behalf of whoever opened the file, so a Finder copy from
+  a card shows no disk traffic of its own. The mount is flagged `MNT_EXT_FSKIT`, and for
+  those volumes the processes holding files open there are named, marked `(file open)`
+  because there is no rate of their own to give.
+- **Anything else** owned by another user is reported as `≈ a system process`.
+
+Each of these is an inference and carries the mark. None is folded into a measured rate.
+
 ## Spotlight
 
 Anything you plug in says whether Spotlight is indexing it, at the end of the line

@@ -20,7 +20,87 @@ struct Actor {
     /// DesktopServicesHelper is doing a Finder copy - a curated map can.
     var owner: String = ""
 
-    var display: String { owner.isEmpty ? name : "\(name) (\(owner))" }
+    /// Not measured but reasoned: who is probably behind traffic no visible process
+    /// accounts for. Shown with the inference mark, never as a measurement.
+    var inferred = false
+
+    var display: String {
+        let base = owner.isEmpty ? name : "\(name) (\(owner))"
+        return inferred ? "\u{2248} " + base : base
+    }
+
+    /// The name with its rate, or - when there is no rate to give, because the
+    /// process holds a file open but its own counters do not move - with that said.
+    func label(rate: (Double) -> String) -> String {
+        if bytesPerSec > 0 { return display + " " + rate(bytesPerSec) }
+        return inferred ? display : display + " (file open)"
+    }
+}
+
+/// The volumes this Mac shares, and how many machines are connected to its file
+/// server. File sharing runs as root, so its reads never appear among the processes
+/// Chokepoint can see; this is the evidence that they are probably it. Both come
+/// from tools that need no privileges, run off the main thread every 15 seconds.
+final class SharingWatch {
+    static let shared = SharingWatch()
+    private(set) var sharedPaths: Set<String> = []
+    private(set) var smbClients = 0
+    /// False until the first answer arrives. Until then nothing is known about
+    /// sharing, and guessing "a system process" for a shared volume would be wrong.
+    private(set) var loaded = false
+    private var last = Date.distantPast
+    private var running = false
+
+    func refreshIfStale(now: Date = Date()) {
+        guard !running, now.timeIntervalSince(last) >= 15 else { return }
+        running = true
+        last = now
+        DispatchQueue.global(qos: .utility).async {
+            let paths = SharingWatch.parseShares(SharingWatch.run("/usr/sbin/sharing", ["-l"]))
+            let clients = paths.isEmpty ? 0
+                : SharingWatch.parseSMBClients(SharingWatch.run("/usr/sbin/netstat", ["-an", "-p", "tcp"]))
+            DispatchQueue.main.async {
+                self.sharedPaths = paths
+                self.smbClients = clients
+                self.loaded = true
+                self.running = false
+            }
+        }
+    }
+
+    /// `path:\t\t/Volumes/media` lines from `sharing -l`.
+    static func parseShares(_ text: String) -> Set<String> {
+        Set(text.split(separator: "\n").compactMap { line -> String? in
+            guard line.hasPrefix("path:") else { return nil }
+            let path = line.dropFirst("path:".count).trimmingCharacters(in: .whitespaces)
+            return path.isEmpty ? nil : path
+        })
+    }
+
+    /// Distinct remote hosts with an established connection to this Mac's port 445.
+    static func parseSMBClients(_ text: String) -> Int {
+        var hosts = Set<String>()
+        for line in text.split(separator: "\n") where line.contains("ESTABLISHED") {
+            let cols = line.split(separator: " ", omittingEmptySubsequences: true)
+            guard cols.count >= 5, cols[3].hasSuffix(".445") else { continue }
+            let remote = cols[4]
+            if let dot = remote.lastIndex(of: ".") { hosts.insert(String(remote[..<dot])) }
+        }
+        return hosts.count
+    }
+
+    private static func run(_ path: String, _ args: [String]) -> String {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: path)
+        task.arguments = args
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = FileHandle.nullDevice
+        do { try task.run() } catch { return "" }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
+        return String(decoding: data, as: UTF8.self)
+    }
 }
 
 /// Attributes disk traffic to the processes causing it.
@@ -286,6 +366,10 @@ enum ProcessSampler {
         /// keeps its backup volume root-owned behind an ACL that denies everyone
         /// adding files, so a read-write mount still refuses the marker.
         var rootWritable = true
+        /// Run by FSKit, in user space (macOS 15 and later: FAT, exFAT, NTFS). The
+        /// disk I/O is done by a root service on behalf of whoever asked, so the
+        /// process copying the files shows no disk traffic of its own.
+        var fskit = false
     }
 
     /// The GPT partition type of an EFI system partition, as IOMedia reports it.
@@ -349,6 +433,8 @@ enum ProcessSampler {
             // macOS's removable-volume consent is not part of it, so a volume can
             // pass this and still be refused until the user allows Chokepoint.
             traits.rootWritable = FileManager.default.isWritableFile(atPath: on)
+            // Reserved and zero before macOS 15, so older systems read "not FSKit".
+            traits.fskit = (entry.f_flags_ext & UInt32(MNT_EXT_FSKIT)) != 0
             // Only FAT volumes can be one, so the registry is asked about those alone.
             if fs == "msdos", let content = partitionContent(device: from) {
                 traits.efiSystem = isEFISystemPartition(content: content)
